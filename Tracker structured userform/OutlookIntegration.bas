@@ -510,7 +510,7 @@ Public Sub SendEmail()
     If contractRequestType = "Contract Upload" Then
         promptMsg = "You're about to send a Contract Upload email. Do you want to reply to the original email with this template?"
     ElseIf contractRequestType = "Out of Scope" Then
-        promptMsg = "You're about to send an Out of Scope email. Do you want to reply to the original email with this template?"
+        promptMsg = "You're about to forward the original email with an Out of Scope template. Continue?"
     ElseIf contractRequestType = "Duplicate Request" Then
         promptMsg = "You're about to send a Duplicate Request email. Do you want to reply to the original email with this template?"
     ElseIf contractRequestType = "Contract Review" Then
@@ -528,6 +528,9 @@ Public Sub SendEmail()
     
     ' Create appropriate email type based on request type
     If contractRequestType = "Contract Upload" Then
+        Set replyEmail = originalEmail.Forward
+    ElseIf contractRequestType = "Out of Scope" Then
+        ' Use Forward for Out of Scope emails
         Set replyEmail = originalEmail.Forward
     Else
         Set replyEmail = originalEmail.Reply
