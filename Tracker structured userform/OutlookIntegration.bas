@@ -423,14 +423,38 @@ Public Sub SendEmail()
                   "<p>Thanks,<br>Contracting Management</p>" & _
                   "</body></html>"
     ElseIf contractRequestType = "Out of Scope" Then
-        ' Out of Scope email with specified format
-        htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
-                  "<p>Hello " & requestedForName & ",</p>" & _
-                  "<p>Thank you for submitting your Contract Support Request. Please be advised however that this type of request is out of scope of the Client Contract Management Team. </p>" & _
-                  "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Client Contract Management</p>" & _
-                  "</body></html>"
-        
-
+        ' Out of Scope email with appropriate template based on selected email type
+        If emailTemplate = "Reroute to ICS" Then
+            ' Use the ICS template function
+            htmlBody = LoadOutOfScopeICSTemplate()
+            
+            ' Replace placeholders with actual data
+            htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+            htmlBody = Replace(htmlBody, "<<Client or Supplier Name>>", frmInput.txtClient.Text)
+            
+            ' Set custom email subject for Out of Scope - Reroute to ICS
+            emailSubject = "Ticket - Out Of Scope - " & frmInput.txtClient.Text
+        ElseIf emailTemplate = "Direct to Questionnaire" Then
+            ' Use the Questionnaire template function
+            htmlBody = LoadOutOfScopeQuesTemplate()
+            
+            ' Replace placeholders with actual data
+            htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+            htmlBody = Replace(htmlBody, "<<Client or Supplier Name>>", frmInput.txtClient.Text)
+            
+            ' Set custom email subject for Out of Scope - Direct to Questionnaire
+            emailSubject = "Ticket - Out Of Scope - " & frmInput.txtClient.Text
+        Else
+            ' Default Out of Scope email
+            htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
+                      "<p>Hello " & requestedForName & ",</p>" & _
+                      "<p>Thank you for submitting your Contract Support Request. Please be advised however that this type of request is out of scope of the Client Contract Management Team. </p>" & _
+                      "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Client Contract Management</p>" & _
+                      "</body></html>"
+                      
+            ' Set custom email subject for generic Out of Scope
+            emailSubject = "Ticket - Out Of Scope - " & frmInput.txtClient.Text
+        End If
     ElseIf contractRequestType = "Duplicate Request" Then
         ' Simple message for Duplicate Request
         htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
@@ -529,10 +553,28 @@ Public Sub SendEmail()
                 .To = toRecipient
             End If
             
-            If ccRecipient <> "" Then
-                .CC = ccRecipient
+            ' Add specific recipients based on the email template type
+            If emailTemplate = "Reroute to ICS" Then
+                If .To <> "" Then
+                    .To = .To & "; IS.ClientServices@wtwco.com"
+                Else
+                    .To = "IS.ClientServices@wtwco.com"
+                End If
+                .CC = teamEmailAddress
+            ElseIf emailTemplate = "Direct to Questionnaire" Then
+                If .To <> "" Then
+                    .To = .To & "; Questionnaire.Management.Team@wtwco.com"
+                Else
+                    .To = "Questionnaire.Management.Team@wtwco.com"
+                End If
+                .CC = teamEmailAddress
+            Else
+                ' Default Out of Scope recipient handling
+                If ccRecipient <> "" Then
+                    .CC = ccRecipient
+                End If
+                .CC = teamEmailAddress
             End If
-            .CC = teamEmailAddress
         ElseIf contractRequestType = "Duplicate Request" Then
             If toRecipient <> "" Then
                 .To = toRecipient
