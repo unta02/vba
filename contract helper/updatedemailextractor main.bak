@@ -1,0 +1,2695 @@
+#If VBA7 Then
+    Private Declare PtrSafe Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
+#Else
+    Private Declare Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
+#End If
+
+' Global variable to track if changes have been made to the form
+Private HasChanges As Boolean
+
+Private Type SYSTEMTIME
+    wYear As Integer
+    wMonth As Integer
+    wDayOfWeek As Integer
+    wDay As Integer
+    wHour As Integer
+    wMinute As Integer
+    wSecond As Integer
+    wMilliseconds As Integer
+End Type
+
+Private Type TIME_ZONE_INFORMATION
+    Bias As Long
+    StandardName(0 To 31) As Integer
+    StandardDate As SYSTEMTIME
+    StandardBias As Long
+    DaylightName(0 To 31) As Integer
+    DaylightDate As SYSTEMTIME
+    DaylightBias As Long
+End Type
+
+
+
+' In UserForm1 code:
+Private Sub cmdExtract_Click()
+    ExtractEmailContent
+End Sub
+
+Private Sub cmdSave_Click()
+    SaveFormData
+End Sub
+
+Private Sub cmdClear_Click()
+    ' Ask for confirmation before clearing the form
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to clear all fields and reset the form?", _
+                      vbQuestion + vbYesNo, "Confirm Clear")
+    
+    If response = vbYes Then
+        ' Clear all form fields
+        ClearFormFields
+        
+        ' Reset the change status
+        ResetChangeStatus
+        
+        ' Clear row number label
+        lblRowNum.Caption = ""
+        
+        ' Reset the save button caption
+        cmdSave.Caption = "Save Record"
+        
+        'Disable to the download files button
+        cmdDownloadFiles.Enabled = False
+    End If
+End Sub
+
+Private Sub Image1_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+
+End Sub
+
+Private Sub ImgSearch_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    ' Search for LM number in Box Assignment Tracker
+    SearchLMNumber
+End Sub
+
+' Function to search for LM number in Box Assignment Tracker sheet
+Sub SearchLMNumber()
+    On Error GoTo ErrorHandler
+    
+    ' Get the LM number from the form and clean it up
+    Dim lmNumber As String
+    lmNumber = CleanLMNumber(Trim(txtLM.Text))
+    
+    ' Validate that an LM number is entered
+    If lmNumber = "" Then
+        ShowMessage "Please enter an LM number to search."
+        txtLM.SetFocus
+        Exit Sub
+    End If
+    
+    ' Confirm search with the user
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to search for LM number: " & lmNumber & "?", _
+                     vbQuestion + vbYesNo, "Confirm Search")
+    
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Reference the worksheet
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("Box Assignment Tracker")
+    
+    ' Search for the LM number in column D (assuming LM number is stored in column D)
+    Dim foundCell As Range
+    Set foundCell = ws.Columns("D").Find(What:=lmNumber, _
+                                      LookIn:=xlValues, _
+                                      LookAt:=xlWhole, _
+                                      SearchOrder:=xlByRows, _
+                                      SearchDirection:=xlNext, _
+                                      MatchCase:=False)
+    
+    ' Check if LM number is found
+    If foundCell Is Nothing Then
+        ShowMessage "LM number " & lmNumber & " was not found in the Box Assignment Tracker."
+        Exit Sub
+    End If
+    
+    ' Find all occurrences of the LM number to check for duplicates
+    Dim firstAddress As String
+    Dim duplicateCount As Integer
+    Dim duplicateRows As String
+    
+    firstAddress = foundCell.Address
+    duplicateCount = 1
+    duplicateRows = foundCell.Row & ""
+    
+    ' Continue searching for more occurrences
+    Dim currentCell As Range
+    Set currentCell = foundCell
+    
+    Do
+        Set currentCell = ws.Columns("D").FindNext(After:=currentCell)
+        
+        ' Check if we've completed a full search cycle
+        If currentCell Is Nothing Or currentCell.Address = firstAddress Then
+            Exit Do
+        End If
+        
+        ' Only count if it's an exact match
+        If currentCell.Value = lmNumber Then
+            duplicateCount = duplicateCount + 1
+            duplicateRows = duplicateRows & ", " & currentCell.Row
+        End If
+    Loop
+    
+    ' If duplicates found, prompt the user
+    If duplicateCount > 1 Then
+        Dim dupMsg As String
+        dupMsg = "Found " & duplicateCount & " entries for LM number " & lmNumber & _
+                 " in rows: " & duplicateRows & vbCrLf & vbCrLf & _
+                 "Please fix or check the duplicate records before proceeding."
+        
+        ShowMessage dupMsg
+        Exit  ' Exit the function instead of proceeding
+    End If
+    
+    ' Found a match - retrieve the data from that row
+    Dim rowNum As Long
+    rowNum = foundCell.Row
+    
+    ' Clear form fields first to ensure clean data loading
+    ClearFormFields
+    
+    ' Populate form fields with data from the found row
+    txtCoordinator.Text = ws.Cells(rowNum, "A").Value
+    txtDate.Text = ws.Cells(rowNum, "B").Value
+    txtEmailSubject.Text = ws.Cells(rowNum, "C").Value
+    txtLM.Text = ws.Cells(rowNum, "D").Value
+    
+    ' Set the Request Type combobox
+    Dim requestValue As String
+    requestValue = ws.Cells(rowNum, "E").Value
+    
+    Dim validRequest As Boolean
+    validRequest = False
+    For i = 0 To cboRequest.ListCount - 1
+        If cboRequest.List(i) = requestValue Then
+            cboRequest.Text = requestValue
+            validRequest = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid request type, set to empty
+    If Not validRequest Then
+        cboRequest.ListIndex = -1
+    End If
+    
+    ' Show/hide email template selection based on contract request type
+    If cboRequest.Text = "Contract Review" Then
+        cboEmailType.Visible = True
+        lblEmailType.Visible = True
+    Else
+        cboEmailType.Visible = False
+        lblEmailType.Visible = False
+    End If
+    
+    ' Set Comet checkbox
+    If UCase(Trim(ws.Cells(rowNum, "G").Value)) = "YES" Then
+        chkComet.Value = True
+    Else
+        chkComet.Value = False
+    End If
+    
+    ' Continue populating fields
+    txtClient.Text = ws.Cells(rowNum, "H").Value
+    txtContractType.Text = ws.Cells(rowNum, "I").Value
+    txtLOB.Text = ws.Cells(rowNum, "J").Value
+    
+    ' Set Region combobox
+    Dim regionValue As String
+    regionValue = ws.Cells(rowNum, "K").Value
+    
+    Dim validRegion As Boolean
+    validRegion = False
+    For i = 0 To cboRegion.ListCount - 1
+        If cboRegion.List(i) = regionValue Then
+            cboRegion.Text = regionValue
+            validRegion = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid region, set to "Not Applicable"
+    If Not validRegion Then
+        cboRegion.Text = "Not Applicable"
+    End If
+    
+    ' Set RCL information
+    cboRCL.Text = ws.Cells(rowNum, "P").Value
+    
+    ' Set CM combobox
+    Dim cmValue As String
+    cmValue = ws.Cells(rowNum, "Q").Value
+    
+    ' Enable override for setting CM
+    chkOverrideCM.Value = True
+    
+    Dim validCM As Boolean
+    validCM = False
+    For i = 0 To cboCM.ListCount - 1
+        If cboCM.List(i) = cmValue Then
+            cboCM.Text = cmValue
+            validCM = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid CM, set to empty
+    If Not validCM Then
+        cboCM.ListIndex = -1
+    End If
+    
+    ' Additional fields
+    txtCDR.Text = ws.Cells(rowNum, "R").Value
+    txtRemarks.Text = ws.Cells(rowNum, "S").Value
+    
+    ' Load RCL email if it exists (using column T as an example, adjust if different)
+    ' txtRCLemail.Text = ws.Cells(rowNum, "T").Value
+    
+    ' Update row number display to show which row was retrieved
+    lblRowNum.Caption = "Record retrieved from row: " & rowNum
+    
+    ' Change the save button caption to "Update Record" after loading existing record
+    cmdSave.Caption = "Update Record"
+    
+    ' Display success message
+    ShowMessage "Successfully loaded record for LM number " & lmNumber & " from row " & rowNum & "."
+    
+    ' Reset the change status since we just loaded new data
+    ResetChangeStatus
+           
+    Exit Sub
+    
+ErrorHandler:
+    ' Handle any errors that occur during the search process
+    ShowMessage "An error occurred while searching for LM number: " & Err.Description
+End Sub
+
+Private Sub Label4_Click()
+
+End Sub
+
+' Add this to the UserForm_Initialize event
+Private Sub UserForm_Initialize()
+
+    ' initialize adding minimize and maximize buttons
+    Dim B As Boolean
+
+    B = ShowMinimizeButton(UF:=Me, HideButton:=False)
+    B = ShowMaximizeButton(UF:=Me, HideButton:=False)
+    
+    Dim C As Boolean
+    C = MakeFormResizable(UF:=Me, Sizable:=True)
+    C = IsFormResizable(UF:=Me)
+    ' Clear all fields on initialization
+    ClearFormFields
+    
+    ' Set initial caption for the Save button
+    cmdSave.Caption = "Save Record"
+    
+    ' Initialize the combobox for email template types
+    cboEmailType.Clear
+    cboEmailType.AddItem "Standard"
+    cboEmailType.AddItem "Standard Urgent"
+    cboEmailType.AddItem "RFP"
+    cboEmailType.Text = "Standard"
+    
+    ' Initially hide the email template selection as it will only be shown for Contract Review
+    cboEmailType.Visible = False
+    lblEmailType.Visible = False
+    
+    ' Configure TextBox for proper text wrapping
+    With txtEmailOutput
+        .MultiLine = True
+        .WordWrap = True
+        .ScrollBars = fmScrollBarsVertical
+        .EnterKeyBehavior = True ' Allows Enter key for new lines
+    End With
+    
+    ' Initialize the Request Type ComboBox with valid values
+    With cboRequest
+        .Clear
+        .AddItem "Contract Upload"
+        .AddItem "Contract Review"
+        .AddItem "Out of Scope"
+        .AddItem "Duplicate Request"
+
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize the Region ComboBox with valid values
+    With cboRegion
+        .Clear
+        .AddItem "USA (Mid-West)"
+        .AddItem "USA (West)"
+        .AddItem "USA (Northeast)"
+        .AddItem "Canada"
+        .AddItem "USA (Southeast)"
+        .AddItem "Great Britain"
+        .AddItem "Western Europe"
+        .AddItem "APAC"
+        .AddItem "Not Applicable"
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize the Contract Manager ComboBox with valid values
+    With cboCM
+        .Clear
+        .AddItem "Dan"
+        .AddItem "Teresa"
+        .AddItem "Thesa"
+        .AddItem "Deb"
+        .AddItem "Faye"
+        .AddItem "Rose"
+        .AddItem "Dee"
+        .AddItem "Ian"
+        .AddItem "Priscilla"
+        .AddItem "Ren"
+        .AddItem "Loise"
+        .AddItem "Emman"
+        .AddItem "Mia"
+        .AddItem "Erica"
+        .AddItem "Chad"
+        .AddItem "Kristin"
+        .AddItem "RxC Group"
+        .AddItem "Pension Outsourcing - Mary Lueth/Deb"
+        .AddItem "Out of Scope - Mailbox"
+        ' Make combobox initially locked until Override CM is checked
+        .Locked = True
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize row number label
+    lblRowNum.Caption = ""
+    
+    ' Make sure Override CM checkbox is unchecked by default
+    chkOverrideCM.Value = False
+    
+    ' Add tooltip to the ImgSearch control
+    If Not ImgSearch Is Nothing Then
+        ImgSearch.ControlTipText = "Click to search for an LM number in the Box Assignment Tracker"
+    End If
+    
+    ' Add tooltip to the ImgCDRSearch control
+    If Not ImgCDRSearch Is Nothing Then
+        ImgCDRSearch.ControlTipText = "Click to search for a CDR number in the Box Assignment Tracker"
+    End If
+    
+    ' Initialize the change status label and reset HasChanges flag
+    lblChangeStatus.Caption = ""
+    HasChanges = False
+    
+    ' Initially disable the Download Files button until email is extracted
+    cmdDownloadFiles.Enabled = False
+    
+    ' Load RCL data from References sheet
+    Call LoadRCLData
+    
+    ' Initialize the message label
+    lblMsg.Text = ""
+    lblMsg.Visible = True
+    lblMsg.ForeColor = RGB(0, 70, 130) ' Navy blue color
+    lblMsg.Font.Bold = True
+End Sub
+
+' Add this procedure to handle the Download Files button click event
+Private Sub cmdDownloadFiles_Click()
+    ' Check if an email has been extracted
+    If Trim(txtEmailOutput.Text) = "" Then
+        ShowMessage "Please extract an email first."
+        Exit Sub
+    End If
+    
+    ' Ask for confirmation before downloading attachments
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to download document attachments from the selected email?", _
+                      vbQuestion + vbYesNo, "Confirm Download")
+    
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim explorer As Object
+    Dim selection As Object
+    
+    ' Create Outlook Application instance if not already running
+    On Error Resume Next
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get active explorer
+    Set explorer = outlookApp.ActiveExplorer
+    If explorer Is Nothing Then
+        ShowMessage "Please open Outlook and select an email."
+        Exit Sub
+    End If
+    
+    ' Check if an email is selected
+    Set selection = explorer.selection
+    If selection.Count = 0 Then
+        ShowMessage "Please select an email first."
+        Exit Sub
+    End If
+    
+    ' Get the selected email
+    Dim objMail As Object
+    Set objMail = selection.Item(1)
+    
+    If objMail.Class <> 43 Then ' 43 = olMail
+        ShowMessage "The selected item is not an email."
+        Exit Sub
+    End If
+    
+    ' Verify this is the same email that was extracted
+    Dim currentHtmlContent As String
+    Dim currentLMNumber As String
+    Dim originalLMNumber As String
+    
+    currentHtmlContent = objMail.htmlBody
+    currentLMNumber = ExtractLMNumber(currentHtmlContent)
+    originalLMNumber = txtLM.Text
+    
+    ' Check if LM numbers match
+    If currentLMNumber <> originalLMNumber Then
+        ShowMessage "The currently selected email does not match the one initially extracted." & vbCrLf & _
+               "Expected LM number: " & originalLMNumber & vbCrLf & _
+               "Current LM number: " & currentLMNumber & vbCrLf & vbCrLf & _
+               "Please select the original email with Legal Matter " & originalLMNumber & ".", _
+               True
+        Exit Sub
+    End If
+    
+    ' Count document attachments (PDFs and Word documents only)
+    Dim docCount As Integer
+    Dim attachment As Object
+    docCount = 0
+    
+    For Each attachment In objMail.Attachments
+        If IsDocumentFile(attachment.fileName) Then
+            docCount = docCount + 1
+        End If
+    Next attachment
+    
+    ' Check if the email has any document attachments
+    If docCount = 0 Then
+        ShowMessage "This email does not have any document attachments (PDF or Word documents)."
+        Exit Sub
+    End If
+    
+    ' Ask the user for a folder to save the attachments
+    Dim folderDialog As Object
+    Set folderDialog = CreateObject("Shell.Application").BrowseForFolder(0, "Select folder to save attachments:", 0, 0)
+    
+    ' Check if user selected a folder
+    If folderDialog Is Nothing Then
+        ShowMessage "Download canceled. No folder was selected."
+        Exit Sub
+    End If
+    
+    ' Get the selected folder path
+    Dim folderPath As String
+    folderPath = folderDialog.Self.Path
+    
+    ' Download document attachments only
+    Dim saveCount As Integer
+    Dim skipCount As Integer
+    Dim errorCount As Integer
+    Dim filePath As String
+    
+    saveCount = 0
+    skipCount = 0
+    errorCount = 0
+    
+    On Error Resume Next
+    For Each attachment In objMail.Attachments
+        ' Check if this is a document file type we want to download
+        If IsDocumentFile(attachment.fileName) Then
+            ' Create a safe file name (replace invalid characters)
+            Dim safeFileName As String
+            safeFileName = Replace(attachment.fileName, "/", "_")
+            safeFileName = Replace(safeFileName, "\", "_")
+            safeFileName = Replace(safeFileName, ":", "_")
+            safeFileName = Replace(safeFileName, "*", "_")
+            safeFileName = Replace(safeFileName, "?", "_")
+            safeFileName = Replace(safeFileName, """", "_")
+            safeFileName = Replace(safeFileName, "<", "_")
+            safeFileName = Replace(safeFileName, ">", "_")
+            safeFileName = Replace(safeFileName, "|", "_")
+            
+            ' Create the full file path
+            filePath = folderPath & "\" & safeFileName
+            
+            ' Check if file already exists and modify name if needed
+            Dim counter As Integer
+            counter = 1
+            Dim baseName As String
+            Dim fileExt As String
+            
+            ' Split filename into base name and extension
+            If InStr(safeFileName, ".") > 0 Then
+                baseName = Left(safeFileName, InStrRev(safeFileName, ".") - 1)
+                fileExt = mid(safeFileName, InStrRev(safeFileName, "."))
+            Else
+                baseName = safeFileName
+                fileExt = ""
+            End If
+            
+            ' If file exists, add a counter to the filename
+            While Dir(filePath) <> ""
+                filePath = folderPath & "\" & baseName & "(" & counter & ")" & fileExt
+                counter = counter + 1
+            Wend
+            
+            ' Save the attachment
+            attachment.SaveAsFile filePath
+            
+            ' Check for errors
+            If Err.Number = 0 Then
+                saveCount = saveCount + 1
+            Else
+                errorCount = errorCount + 1
+                Err.Clear
+            End If
+        Else
+            ' Skip this attachment since it's not a document type
+            skipCount = skipCount + 1
+        End If
+    Next attachment
+    
+    On Error GoTo 0
+    
+    ' Show summary message
+    Dim summaryMsg As String
+    summaryMsg = "Download complete." & vbCrLf & vbCrLf & _
+                 "Successfully saved: " & saveCount & " document(s)" & vbCrLf
+    
+    If skipCount > 0 Then
+        ' Removed information about skipped non-document files
+    End If
+    
+    If errorCount > 0 Then
+        summaryMsg = summaryMsg & "Failed to save: " & errorCount & " file(s)" & vbCrLf
+    End If
+    
+    summaryMsg = summaryMsg & vbCrLf & "Location: " & folderPath
+    
+    ShowMessage summaryMsg, 10
+    
+    ' Clean up
+    Set attachment = Nothing
+    Set objMail = Nothing
+    Set selection = Nothing
+    Set explorer = Nothing
+    Set outlookApp = Nothing
+    Set folderDialog = Nothing
+End Sub
+
+' Function to check if a file is a document type (PDF or Word)
+Function IsDocumentFile(fileName As String) As Boolean
+    Dim fileExt As String
+    
+    ' Get the file extension
+    If InStr(fileName, ".") > 0 Then
+        fileExt = LCase(mid(fileName, InStrRev(fileName, ".")))
+    Else
+        fileExt = ""
+    End If
+    
+    ' Check if it's a document extension we want
+    Select Case fileExt
+        Case ".pdf"  ' PDF files
+            IsDocumentFile = True
+        Case ".doc", ".docx", ".docm"  ' Word documents
+            IsDocumentFile = True
+        Case ".rtf"  ' Rich Text Format
+            IsDocumentFile = True
+        Case ".txt"  ' Text files
+            IsDocumentFile = True
+        Case ".xls", ".xlsx", ".xlsm"  ' Excel files
+            IsDocumentFile = True
+        Case ".ppt", ".pptx", ".pptm"  ' PowerPoint files
+            IsDocumentFile = True
+        Case Else
+            IsDocumentFile = False
+    End Select
+End Function
+
+Public Function GetUTCTime() As Date
+    Dim tzi As TIME_ZONE_INFORMATION
+    Dim ret As Long
+    
+    ' Get the timezone information
+    ret = GetTimeZoneInformation(tzi)
+    
+    ' Convert current time to UTC
+    ' Bias is in minutes, positive means behind UTC, negative means ahead
+    GetUTCTime = DateAdd("n", tzi.Bias, Now())
+End Function
+
+
+Sub ExtractEmailContent()
+    On Error Resume Next
+    
+    ' Clear all form fields first
+    ClearFormFields
+    
+    ' Reset row number when extracting new content
+    lblRowNum.Caption = ""
+    
+    ' Reset the save button caption to "Save Record" when extracting a new email
+    cmdSave.Caption = "Save Record"
+    
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim explorer As Object
+    Dim selection As Object
+    
+    ' Create Outlook Application instance if not already running
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get active explorer
+    Set explorer = outlookApp.ActiveExplorer
+    If explorer Is Nothing Then
+        txtEmailOutput.Text = "Please open Outlook and select an email."
+        Exit Sub
+    End If
+    
+    ' Check if an email is selected
+    Set selection = explorer.selection
+    If selection.Count = 0 Then
+        txtEmailOutput.Text = "Please select an email first."
+        Exit Sub
+    End If
+    
+    ' Get the selected email
+    Dim objMail As Object
+    Set objMail = selection.Item(1)
+    
+    If objMail.Class <> 43 Then ' 43 = olMail
+        txtEmailOutput.Text = "The selected item is not an email."
+        Exit Sub
+    End If
+    
+    ' Get both plain text and HTML content of the email
+    Dim plainContent As String
+    Dim htmlContent As String
+    plainContent = objMail.Body
+    htmlContent = objMail.htmlBody
+    
+    ' Find the starting position of "Received - Legal Matter"
+    Dim startPos As Long
+    startPos = InStr(htmlContent, "Received - Legal Matter")
+    
+    If startPos = 0 Then
+        txtEmailOutput.Text = "Could not find 'Received - Legal Matter' in the email content."
+        Exit Sub
+    End If
+    
+    ' Format the content for display using plain text
+    txtEmailOutput.Text = FormatPlainContent(plainContent)
+    
+    ' Extract specific information and populate form fields (still using HTML for reliable extraction)
+    PopulateFormFields htmlContent
+    
+    ' Enable the Download Files button since we've successfully extracted an email
+    cmdDownloadFiles.Enabled = True
+    
+    ' Clean up
+    Set objMail = Nothing
+    Set selection = Nothing
+    Set explorer = Nothing
+    Set outlookApp = Nothing
+    
+    ' Reset the change status since we just extracted new data
+    ResetChangeStatus
+End Sub
+
+Function FormatPlainContent(plainContent As String) As String
+    Dim formattedContent As String
+    Dim lines() As String
+    Dim i As Long
+    Dim inSummarySection As Boolean
+    Dim line As String
+    Dim parts() As String
+    Dim label As String
+    Dim Value As String
+    
+    ' Split the content into lines
+    lines = Split(plainContent, vbCrLf)
+    formattedContent = ""
+    inSummarySection = False
+    
+    For i = 0 To UBound(lines)
+        line = Trim(lines(i))
+        
+        ' Skip empty lines and unwanted content
+        If line <> "" Then
+            ' Skip if line contains "View legal matter"
+            If InStr(1, line, "View legal matter", vbTextCompare) > 0 Then
+                Exit For
+            End If
+            
+            ' Check for the start of the summary section
+            If InStr(1, line, "Summary of the Matter:") > 0 Then
+                inSummarySection = True
+                formattedContent = formattedContent & vbCrLf & "SUMMARY OF THE MATTER:" & vbCrLf & String(50, "-") & vbCrLf & vbCrLf
+            ' Check for the end of relevant content
+            ElseIf InStr(1, line, "ENTERPRISE TECHNOLOGY SERVICES") > 0 Then
+                Exit For
+            ' Process lines within the summary section
+            ElseIf inSummarySection Then
+                ' Clean up the line and format with colon
+                If Left(line, 1) <> "_" And line <> "Summary of the Matter:" Then
+                    ' Split the line by tab or multiple spaces
+                    parts = Split(line, vbTab)
+                    If UBound(parts) < 1 Then
+                        ' Try splitting by multiple spaces if tab didn't work
+                        parts = Split(line, "  ")
+                    End If
+                    
+                    If UBound(parts) >= 0 Then
+                        label = Trim(parts(0))
+                        If UBound(parts) >= 1 Then
+                            Value = Trim(parts(1))
+                        Else
+                            Value = ""
+                        End If
+                        
+                        ' Format with consistent spacing and colon
+                        formattedContent = formattedContent & label & ": " & Value & vbCrLf & vbCrLf
+                    Else
+                        formattedContent = formattedContent & line & vbCrLf & vbCrLf
+                    End If
+                End If
+            ' Capture the header information
+            ElseIf InStr(1, line, "Received - Legal Matter") > 0 Then
+                formattedContent = line & vbCrLf & String(50, "-") & vbCrLf & vbCrLf
+            End If
+        End If
+    Next i
+    
+    ' Remove any trailing blank lines
+    Do While Right(formattedContent, 4) = vbCrLf & vbCrLf
+        formattedContent = Left(formattedContent, Len(formattedContent) - 2)
+    Loop
+    
+    FormatPlainContent = formattedContent
+End Function
+
+Function LookupCoordinator(userID As String) As String
+    ' Function to lookup coordinator information from Admin Sheet
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Admin")
+    If ws Is Nothing Then
+        LookupCoordinator = userID ' Return original userID if sheet not found
+        Exit Function
+    End If
+    
+    ' Find the last row in column W (UserID column)
+    lastRow = ws.Cells(ws.Rows.Count, "W").End(xlUp).Row
+    
+    ' Loop through UserIDs to find a match
+    For i = 4 To lastRow ' Start from row 4 as per specification
+        If UCase(Trim(ws.Cells(i, "W").Value)) = UCase(Trim(userID)) Then
+            ' Return the Name from column X
+            LookupCoordinator = ws.Cells(i, "Y").Value
+            Exit Function
+        End If
+    Next i
+    
+    ' If no match found, return original userID
+    LookupCoordinator = userID
+End Function
+
+Sub PopulateFormFields(htmlContent As String)
+    ' Set Coordinator to current user with lookup
+    Dim currentUser As String
+    currentUser = Environ("USERNAME")
+    txtCoordinator.Text = LookupCoordinator(currentUser)
+    
+    ' Set Date to current UTC date using GetUTCTime
+    txtDate.Text = Format(GetUTCTime(), "yyyy-mm-dd")
+    
+    ' Extract LM number
+    Dim lmNumber As String
+    lmNumber = ExtractLMNumber(htmlContent)
+    txtLM.Text = lmNumber
+    
+    ' Extract Client Name
+    Dim clientName As String
+    clientName = ExtractClientName(htmlContent)
+    txtClient.Text = clientName
+    
+    ' Extract Request Type
+    Dim requestType As String
+    requestType = ExtractRequestType(htmlContent)
+    
+    ' Set the Request Type in the combo box, validate it's in the list
+    Dim validRequest As Boolean
+    validRequest = False
+    For i = 0 To cboRequest.ListCount - 1
+        If cboRequest.List(i) = requestType Then
+            cboRequest.Text = requestType
+            validRequest = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid request type, set ListIndex to -1 (no selection)
+    If Not validRequest Then
+        cboRequest.ListIndex = -1
+    End If
+    
+    ' Extract Contract Type
+    Dim contractType As String
+    contractType = ExtractContractType(htmlContent)
+    txtContractType.Text = contractType
+    
+    ' Extract LOB
+    Dim lob As String
+    lob = ExtractLOB(htmlContent)
+    txtLOB.Text = lob
+    
+    ' Extract Region
+    Dim region As String
+    region = ExtractRegion(htmlContent)
+    
+    ' Set the Region in the combo box, validate it's in the list
+    Dim validRegion As Boolean
+    validRegion = False
+    For i = 0 To cboRegion.ListCount - 1
+        If cboRegion.List(i) = region Then
+            cboRegion.Text = region
+            validRegion = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid region, set to "Not Applicable"
+    If Not validRegion Then
+        cboRegion.Text = "Not Applicable"
+    End If
+    
+    ' Set default Contract Manager to Priscilla
+    ' You can customize this logic if needed to extract from the email
+    Dim cm As String
+    cm = ""  ' Default value
+    
+    ' Set the Contract Manager in the combo box, validate it's in the list
+    Dim validCM As Boolean
+    validCM = False
+    For i = 0 To cboCM.ListCount - 1
+        If cboCM.List(i) = cm Then
+            cboCM.Text = cm
+            validCM = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid contract manager, set ListIndex to -1 (no selection)
+    If Not validCM Then
+        cboCM.ListIndex = -1
+    End If
+    
+    ' Use the UpdateEmailSubject function to format the email subject
+    UpdateEmailSubject
+End Sub
+
+Function ExtractLMNumber(htmlContent As String) As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim lmNumber As String
+    
+    startPos = InStr(htmlContent, "Received - Legal Matter")
+    If startPos > 0 Then
+        ' Move to the end of "Received - Legal Matter"
+        startPos = startPos + Len("Received - Legal Matter")
+        
+        ' Look for the end of the LM number (usually before a </strong> tag)
+        endPos = InStr(startPos, htmlContent, "</strong>")
+        If endPos > 0 Then
+            lmNumber = Trim(mid(htmlContent, startPos, endPos - startPos))
+        End If
+    End If
+    
+    ExtractLMNumber = lmNumber
+End Function
+
+Function ExtractClientName(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim clientName As String
+    
+    startPattern = "<td><b>Client or Supplier Name (full legal entity name if known)</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of client name
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of client name (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            clientName = mid(htmlContent, startPos, endPos - startPos)
+        End If
+    End If
+    
+    ExtractClientName = clientName
+End Function
+
+Function ExtractRequestType(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim requestType As String
+    
+    startPattern = "<td><b>Request Type</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of request type
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of request type (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            requestType = Trim(mid(htmlContent, startPos, endPos - startPos))
+            
+            ' Recode the request type based on rules
+            Select Case UCase(requestType)
+                Case "CLIENT"
+                    requestType = "Contract Review"
+                Case "CONTRACT UPLOAD"
+                    requestType = "Contract Upload"
+                Case Else
+                    requestType = "" ' Leave blank if not matching our valid values
+            End Select
+        End If
+    End If
+    
+    ExtractRequestType = requestType
+End Function
+
+Function ExtractContractType(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim contractType As String
+    
+    startPattern = "<td><b>Document Type being requested</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of contract type
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of contract type (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            contractType = mid(htmlContent, startPos, endPos - startPos)
+        End If
+    End If
+    
+    ExtractContractType = contractType
+End Function
+
+Function DecodeHtml(htmlText As String) As String
+    Dim decodedText As String
+    decodedText = htmlText
+    
+    ' Replace common HTML entities
+    decodedText = Replace(decodedText, "&amp;", "&")
+    decodedText = Replace(decodedText, "&lt;", "<")
+    decodedText = Replace(decodedText, "&gt;", ">")
+    decodedText = Replace(decodedText, "&quot;", """")
+    decodedText = Replace(decodedText, "&#39;", "'")
+    decodedText = Replace(decodedText, "&nbsp;", " ")
+    
+    DecodeHtml = decodedText
+End Function
+
+Function ExtractLOB(htmlContent As String) As String
+    Dim startPattern As String, additionalPattern As String
+    Dim startPos As Long, endPos As Long
+    Dim lob As String, additionalLob As String
+    Dim allLobs As String
+    
+    ' Extract primary Line of Business
+    startPattern = "<td><b>Line of Business</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of LOB
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of LOB (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            lob = mid(htmlContent, startPos, endPos - startPos)
+            
+            ' Decode HTML entities before processing
+            lob = DecodeHtml(lob)
+            
+            ' Extract only the first part before "("
+            Dim parenPos As Long
+            parenPos = InStr(lob, "(")
+            If parenPos > 0 Then
+                lob = Left(Trim(lob), 3)
+            End If
+        End If
+    End If
+    
+    ' Extract Additional Line of Business if it exists
+    additionalPattern = "<td><b>Additional Line Of Business</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, additionalPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of additional LOB
+        startPos = startPos + Len(additionalPattern)
+        
+        ' Find end of additional LOB (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            additionalLob = mid(htmlContent, startPos, endPos - startPos)
+            
+            ' Decode HTML entities
+            additionalLob = DecodeHtml(additionalLob)
+            
+            ' Process multiple additional LOBs if they exist
+            If InStr(additionalLob, ",") > 0 Then
+                Dim lobArray() As String
+                Dim i As Long
+                Dim tempLob As String
+                
+                ' Split by comma
+                lobArray = Split(additionalLob, ",")
+                
+                ' Process each additional LOB
+                For i = 0 To UBound(lobArray)
+                    tempLob = Trim(lobArray(i))
+                    ' Extract first 3 letters before "("
+                    parenPos = InStr(tempLob, "(")
+                    If parenPos > 0 Then
+                        tempLob = Left(Trim(tempLob), 3)
+                    End If
+                    
+                    ' Add to allLobs if not empty
+                    If tempLob <> "" Then
+                        If allLobs = "" Then
+                            allLobs = tempLob
+                        Else
+                            allLobs = allLobs & ", " & tempLob
+                        End If
+                    End If
+                Next i
+            Else
+                ' Single additional LOB
+                parenPos = InStr(additionalLob, "(")
+                If parenPos > 0 Then
+                    additionalLob = Left(Trim(additionalLob), 3)
+                End If
+                
+                If additionalLob <> "" Then
+                    allLobs = additionalLob
+                End If
+            End If
+        End If
+    End If
+    
+    ' Combine primary and additional LOBs
+    If lob <> "" Then
+        If allLobs = "" Then
+            allLobs = lob
+        Else
+            allLobs = lob & ", " & allLobs
+        End If
+    End If
+    
+    ' If no LOBs found, return default value
+    If Trim(allLobs) = "" Then
+        allLobs = "N/A"
+    End If
+    
+    ExtractLOB = allLobs
+End Function
+
+Function LookupRegion(regionValue As String) As String
+    ' Function to lookup region information from Admin Sheet
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Admin")
+    If ws Is Nothing Then
+        LookupRegion = regionValue ' Return original value if sheet not found
+        Exit Function
+    End If
+    
+    ' Find the last row in column AB (Region lookup column)
+    lastRow = ws.Cells(ws.Rows.Count, "AB").End(xlUp).Row
+    
+    ' Loop through regions to find a match
+    For i = 4 To lastRow ' Start from row 4 as per specification
+        If Trim(ws.Cells(i, "AB").Value) = Trim(regionValue) Then
+            ' Return the recoded region from column AC
+            LookupRegion = ws.Cells(i, "AC").Value
+            Exit Function
+        End If
+    Next i
+    
+    ' If no match found, return "Not Applicable"
+    LookupRegion = "Not Applicable"
+End Function
+
+Function ExtractRegion(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim region As String
+    Dim requestType As String
+    
+    ' First get the request type to determine which field to use
+    requestType = ExtractRequestType(htmlContent)
+    
+    ' Choose the appropriate field based on request type
+    If requestType = "Contract Review" Then
+        startPattern = "<td><b>Region where services are provided</b></td>" & vbCrLf & "<td>"
+    Else
+        startPattern = "<td><b>Client / Counterparty Location</b></td>" & vbCrLf & "<td>"
+    End If
+    
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of region
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of region (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            region = Trim(mid(htmlContent, startPos, endPos - startPos))
+            
+            ' Recode the region using the lookup table
+            region = LookupRegion(region)
+        End If
+    End If
+    
+    ' If no region found or empty, return "Not Applicable"
+    If region = "" Then
+        region = "Not Applicable"
+    End If
+    
+    ExtractRegion = region
+End Function
+
+Function FormatEmailContent(htmlContent As String) As String
+    Dim formattedContent As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim tempStr As String
+    
+    formattedContent = ""
+    
+    ' Extract and format Legal Matter Number
+    startPos = InStr(htmlContent, "Received - Legal Matter")
+    If startPos > 0 Then
+        startPos = startPos + Len("Received - Legal Matter")
+        endPos = InStr(startPos, htmlContent, "</strong>")
+        If endPos > 0 Then
+            tempStr = Trim(mid(htmlContent, startPos, endPos - startPos))
+            formattedContent = formattedContent & "Legal Matter Number: " & tempStr & vbCrLf & vbCrLf
+        End If
+    End If
+    
+    ' Format Client Name
+    startPos = InStr(htmlContent, "<td><b>Client or Supplier Name (full legal entity name if known)</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Client or Supplier Name (full legal entity name if known)</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Client Name: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Request Type
+    startPos = InStr(htmlContent, "<td><b>Request Type</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Request Type</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Request Type: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Document Type
+    startPos = InStr(htmlContent, "<td><b>Document Type being requested</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Document Type being requested</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Document Type: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Line of Business
+    startPos = InStr(htmlContent, "<td><b>Line of Business</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Line of Business</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Line of Business: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Region
+    startPos = InStr(htmlContent, "<td><b>Client / Counterparty Location</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Client / Counterparty Location</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Region: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Contract Value
+    startPos = InStr(htmlContent, "<td><b>Contract Value</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Contract Value</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Contract Value: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    ' Format Due Date
+    startPos = InStr(htmlContent, "<td><b>Due date</b></td>" & vbCrLf & "<td>")
+    If startPos > 0 Then
+        startPos = startPos + Len("<td><b>Due date</b></td>" & vbCrLf & "<td>")
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            tempStr = mid(htmlContent, startPos, endPos - startPos)
+            formattedContent = formattedContent & "Due Date: " & tempStr & vbCrLf
+        End If
+    End If
+    
+    FormatEmailContent = formattedContent
+End Function
+
+Sub SaveFormData()
+'    On Error GoTo ErrorHandler
+    
+    ' Validate required fields before proceeding
+    If Not ValidateRequiredFields Then
+        Exit Sub
+    End If
+    
+    If cboRequest.Text = "Contract Review" Then
+    If Trim(txtRCLemail.Text) <> "" And Not IsValidEmail(Trim(txtRCLemail.Text)) Then
+        DisplayMessage "The RCL Email address format is invalid. Please enter a valid email address.", True
+        txtRCLemail.SetFocus
+        Exit Sub
+    End If
+End If
+    ' Reference the workbook and worksheet
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim updateExisting As Boolean
+    Dim rowToUse As Long
+    Dim savedRowNumber As Long
+    
+    ' Disable events to prevent Worksheet_Change from triggering
+'    Application.EnableEvents = False
+    
+    ' Set reference to the Box Assignment Tracker workbook and sheet
+    ' Assumes the workbook is already open
+    Set wb = ThisWorkbook
+    Set ws = wb.Sheets("Box Assignment Tracker")
+    
+    ' Check if we're updating an existing record or creating a new one
+    updateExisting = False
+    If Trim(lblRowNum.Caption) <> "" Then
+        ' Try to get the row number from the label caption
+        On Error Resume Next
+        ' Extract the number from the caption (which may contain text like "Record saved at row: 42")
+        Dim captionText As String
+        Dim rowPosition As Long
+        
+        captionText = lblRowNum.Caption
+        rowPosition = InStr(1, captionText, "row:")
+        
+        If rowPosition > 0 Then
+            ' Extract just the number after "row:"
+            savedRowNumber = CLng(Trim(mid(captionText, rowPosition + 4)))
+            rowToUse = savedRowNumber
+            updateExisting = True
+        End If
+'        On Error GoTo ErrorHandler
+    End If
+    
+    ' If not updating an existing record, find the next available row
+    If Not updateExisting Then
+        ' Check multiple columns (A through E) to find the last row with data
+        Dim lastRowA As Long, lastRowB As Long, lastRowC As Long, lastRowD As Long, lastRowE As Long
+        lastRowA = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+        lastRowB = ws.Cells(ws.Rows.Count, "B").End(xlUp).Row
+        lastRowD = ws.Cells(ws.Rows.Count, "D").End(xlUp).Row
+        lastRowE = ws.Cells(ws.Rows.Count, "E").End(xlUp).Row
+        
+        ' Use the maximum row number from all checked columns
+        rowToUse = Application.WorksheetFunction.Max(lastRowA, lastRowB, lastRowD, lastRowE) + 1
+    End If
+    
+    ' Display a confirmation message with the LM number
+    Dim confirmMsg As String
+    If updateExisting Then
+        confirmMsg = "You're updating the record for ticket number " & txtLM.Text & ". Continue?"
+    Else
+        confirmMsg = "You're saving a new record for ticket number " & txtLM.Text & ". Continue?"
+    End If
+    
+    If MsgBox(confirmMsg, vbQuestion + vbYesNo, "Confirm Save") = vbNo Then
+'        Application.EnableEvents = True
+        Exit Sub
+    End If
+    
+    ' Save form data to the worksheet
+    ws.Cells(rowToUse, "A").Value = txtCoordinator.Text
+    ws.Cells(rowToUse, "B").Value = txtDate.Text
+    ws.Cells(rowToUse, "C").Value = txtEmailSubject.Text
+    ws.Cells(rowToUse, "D").Value = txtLM.Text
+    ws.Cells(rowToUse, "E").Value = cboRequest.Text  ' Changed from txtRequest to cboRequest
+    
+    ' Check if Comet is checked and set value accordingly
+    If chkComet.Value = True Then
+        ws.Cells(rowToUse, "G").Value = "Yes"
+    Else
+        ws.Cells(rowToUse, "G").Value = "No"
+    End If
+    
+    ws.Cells(rowToUse, "H").Value = txtClient.Text
+    ws.Cells(rowToUse, "I").Value = txtContractType.Text
+    ws.Cells(rowToUse, "J").Value = txtLOB.Text
+    ws.Cells(rowToUse, "K").Value = cboRegion.Text  ' Changed from txtRegion to cboRegion
+   
+    ws.Cells(rowToUse, "P").Value = cboRCL.Text
+    ws.Cells(rowToUse, "R").Value = txtCDR.Text
+    ws.Cells(rowToUse, "S").Value = txtRemarks.Text
+    
+    ' Handle Contract Manager field based on Override CM checkbox and value
+    If chkOverrideCM.Value = False Then
+        ' If override is not checked, use the default behavior
+'        If cboCM.Text = "" Then
+            ' Trigger the worksheet_change event by updating region
+            ws.Cells(rowToUse, "K").Value = cboRegion.Text
+            ' Update the form with the value from the worksheet
+            cboCM.Text = ws.Cells(rowToUse, "Q").Value
+        Else
+            ' Still trigger the worksheet_change event for other processing
+            ws.Cells(rowToUse, "K").Value = cboRegion.Text
+            ' Save the current value to the worksheet
+            ws.Cells(rowToUse, "Q").Value = cboCM.Text
+'        End If
+'    Else
+'        ' If override is checked, use the user-selected value regardless
+'        ws.Cells(rowToUse, "Q").value = cboCM.Text
+    End If
+    
+    ' Update the row number display
+    lblRowNum.Caption = "Record saved at row: " & rowToUse
+    
+    ' Change the save button caption to "Update Record" after saving
+    cmdSave.Caption = "Update Record"
+    
+    ' Re-enable events after all data is entered
+    'Application.EnableEvents = True
+    
+    ' Display success message
+    If updateExisting Then
+        ShowMessage "Record updated successfully at row " & rowToUse
+    Else
+        ShowMessage "Record saved successfully at row " & rowToUse
+    End If
+    
+    ' Reset the change status after successful save
+    ResetChangeStatus
+    
+    Exit Sub
+    
+'ErrorHandler:
+    ' Make sure to re-enable events even if an error occurs
+'    Application.EnableEvents = True
+    ShowMessage "Error saving data: " & Err.Description
+End Sub
+
+' Function to validate that all required fields are filled
+Function ValidateRequiredFields() As Boolean
+    Dim errorMessage As String
+    errorMessage = ""
+    
+    ' Check each required field and build an error message if any are missing
+    If Trim(txtCoordinator.Text) = "" Then
+        errorMessage = errorMessage & "- Coordinator" & vbCrLf
+    End If
+    
+    If Trim(txtDate.Text) = "" Then
+        errorMessage = errorMessage & "- Date" & vbCrLf
+    End If
+    
+    If Trim(txtEmailSubject.Text) = "" Then
+        errorMessage = errorMessage & "- Email Subject" & vbCrLf
+    End If
+    
+    If Trim(txtLM.Text) = "" Then
+        errorMessage = errorMessage & "- LM" & vbCrLf
+    End If
+    
+    If Trim(cboRequest.Text) = "" Then
+        errorMessage = errorMessage & "- Contract Request" & vbCrLf
+    End If
+    
+    If Trim(txtClient.Text) = "" Then
+        errorMessage = errorMessage & "- Client Name" & vbCrLf
+    End If
+    
+    If Trim(cboRegion.Text) = "" Then
+        errorMessage = errorMessage & "- Region" & vbCrLf
+    End If
+    
+    ' Check if additional fields are required for Contract Review
+    If cboRequest.Text = "Contract Review" Then
+        If Trim(cboRCL.Text) = "" Then
+            errorMessage = errorMessage & "- Assigned RCL" & vbCrLf
+        End If
+    End If
+    If cboRequest.Text = "Contract Review" Then
+        If Trim(txtRCLemail.Text) = "" Then
+            errorMessage = errorMessage & "- RCL email address" & vbCrLf
+        ElseIf Not IsValidEmail(Trim(txtRCLemail.Text)) Then
+            errorMessage = errorMessage & "- RCL email address (invalid format)" & vbCrLf
+        End If
+    End If
+    ' If there are any missing fields, show error message and return False
+    If errorMessage <> "" Then
+        ShowMessage "The following required fields are missing:" & vbCrLf & vbCrLf & _
+               errorMessage & vbCrLf & _
+               "Please fill in all required fields before saving."
+        ValidateRequiredFields = False
+    Else
+        ValidateRequiredFields = True
+    End If
+End Function
+
+' Add this to handle the CDR field update
+Private Sub txtCDR_Change()
+    ' Update the email subject when the CDR field changes
+    UpdateEmailSubject
+    ' Mark form as changed
+    MarkAsChanged
+End Sub
+
+' New procedure to update the email subject
+Private Sub UpdateEmailSubject()
+    ' Apply the formula logic to update email subject
+    If cboRequest.Text = "Contract Review" Then
+        ' For Contract Review: "Assignment: Request# [LM], [CDR]-[Client]-[ContractType]"
+        txtEmailSubject.Text = "Assignment: Request# " & txtLM.Text & ", " & txtCDR.Text & "-" & txtClient.Text & "-" & txtContractType.Text
+        
+        ' Clean up the subject by removing excess hyphens if CDR is empty
+        If txtCDR.Text = "" Then
+            txtEmailSubject.Text = Replace(txtEmailSubject.Text, ", -", ", ")
+        End If
+    Else
+        ' For other types (like Contract Upload): "[Last 7 chars of LM]-[Client]"
+        ' Extract the last 7 characters of LM number
+        Dim lmRightPart As String
+        If Len(txtLM.Text) >= 7 Then
+            lmRightPart = Right(txtLM.Text, 7)
+        Else
+            lmRightPart = txtLM.Text
+        End If
+        txtEmailSubject.Text = lmRightPart & "-" & txtClient.Text
+    End If
+End Sub
+
+' Also add event handlers for other fields that affect the email subject
+Private Sub txtLM_Change()
+    UpdateEmailSubject
+    MarkAsChanged
+End Sub
+
+Private Sub txtClient_Change()
+    UpdateEmailSubject
+    MarkAsChanged
+End Sub
+
+Private Sub txtContractType_Change()
+    UpdateEmailSubject
+    MarkAsChanged
+End Sub
+
+Private Sub cboRequest_Change()
+    ' Show/hide email template selection based on contract request type
+    If cboRequest.Text = "Contract Review" Then
+        cboEmailType.Visible = True
+        lblEmailType.Visible = True
+    Else
+        cboEmailType.Visible = False
+        lblEmailType.Visible = False
+    End If
+    
+    ' Special handling for Out of Scope selection
+    If cboRequest.Text = "Out of Scope" Then
+        ' Set Contract Manager to "Out of Scope - Mailbox"
+        cboCM.Text = "Out of Scope - Mailbox"
+        
+        ' Set Override CM checkbox to True
+        chkOverrideCM.Value = True
+        
+        ' Unlock the CM combobox (this should happen automatically via the checkbox event)
+        cboCM.Locked = False
+    End If
+    
+    ' Also update the email subject when the request type changes
+    UpdateEmailSubject
+    
+    ' Mark form as changed
+    MarkAsChanged
+End Sub
+
+' New procedure to clear all form fields
+Sub ClearFormFields()
+    ' Clear all text boxes and reset selection fields
+    txtCoordinator.Text = ""
+    txtDate.Text = Format(Date, "mm/dd/yyyy")  ' Default to today's date
+    txtEmailSubject.Text = ""
+    txtLM.Text = ""
+    txtClient.Text = ""
+    txtContractType.Text = ""
+    txtLOB.Text = ""
+    cboRCL.Text = ""
+    txtRCLemail.Text = ""
+    txtCDR.Text = ""
+    txtRemarks.Text = ""
+    txtEmailOutput.Text = ""
+    
+    ' Reset combo boxes - use ListIndex property instead of Text
+    cboRequest.ListIndex = -1
+    cboRegion.ListIndex = -1
+    cboCM.ListIndex = -1
+    
+    ' Reset checkboxes
+    chkComet.Value = False
+    chkOverrideCM.Value = False
+    
+    ' Lock CM combobox again
+    cboCM.Locked = True
+    
+    ' Reset the change status for the cleared form
+    ResetChangeStatus
+End Sub
+
+' Function to check if an email address has a valid format
+Function IsValidEmail(email As String) As Boolean
+    Dim regex As Object
+    Dim pattern As String
+    
+    ' Create regex object
+    On Error Resume Next
+    Set regex = CreateObject("VBScript.RegExp")
+    
+    If regex Is Nothing Then
+        ' If regex isn't available, use a simpler validation
+        IsValidEmail = InStr(email, "@") > 0 And InStr(email, ".") > InStr(email, "@")
+        Exit Function
+    End If
+    
+    ' Set up the regex pattern for basic email validation
+    pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    
+    With regex
+        .Global = False
+        .MultiLine = False
+        .IgnoreCase = True
+        .pattern = pattern
+    End With
+    
+    ' Test if the email matches the pattern
+    IsValidEmail = regex.Test(email)
+    
+    Set regex = Nothing
+End Function
+
+' Add SendEmail procedure with ability to forward the original email
+Private Sub cmdSendEmail_Click()
+    ' Check if there are unsaved changes and prompt user to save first
+    If HasChanges Then
+        Dim saveFirst As Integer
+        saveFirst = MsgBox("You have unsaved changes. Would you like to save them before sending the email?", _
+                          vbQuestion + vbYesNoCancel, "Unsaved Changes")
+        
+        ' Handle user's choice
+        Select Case saveFirst
+            Case vbYes
+                ' Call SaveFormData and check if it was successful
+                SaveFormData
+                ' If there are still changes, it means saving failed - abort sending email
+                If HasChanges Then
+                    Exit Sub
+                End If
+            Case vbCancel
+                ' User cancelled, abort sending email
+                Exit Sub
+            Case vbNo
+                ' Continue without saving
+        End Select
+    End If
+
+    ' First validate RCL email format if it's Contract Review
+    If cboRequest.Text = "Contract Review" Then
+        If Trim(txtRCLemail.Text) <> "" And Not IsValidEmail(Trim(txtRCLemail.Text)) Then
+            DisplayMessage "The RCL Email address format is invalid. Please enter a valid email address.", True
+            txtRCLemail.SetFocus
+            Exit Sub
+        End If
+    End If
+    
+    ' Validate required fields next
+    If Not ValidateRequiredFieldsForEmail Then
+        Exit Sub
+    End If
+    
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim explorer As Object
+    Dim selection As Object
+    Dim originalEmail As Object
+    Dim forwardEmail As Object
+    Dim htmlBody As String
+    Dim emailSubject As String
+    Dim toRecipient As String
+    Dim ccRecipient As String
+    Dim requestedForName As String
+    Dim contractManagerFullName As String
+    Dim contractManagerShortName As String
+    Dim assignedRCL As String
+    Dim contractRequestType As String
+    Dim emailTemplate As String
+    
+    ' Get the contract request type
+    contractRequestType = cboRequest.Text
+    
+    ' Get the email template type
+    emailTemplate = cboEmailType.Text
+    
+    ' Create Outlook Application instance if not already running
+    On Error Resume Next
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get active explorer and selection
+    Set explorer = outlookApp.ActiveExplorer
+    If explorer Is Nothing Then
+        ShowMessage "Please open Outlook and select an email."
+        Exit Sub
+    End If
+    
+    Set selection = explorer.selection
+    If selection.Count = 0 Then
+        ShowMessage "Please select an email first."
+        Exit Sub
+    End If
+    
+    ' Get the selected email
+    Set originalEmail = selection.Item(1)
+    If originalEmail.Class <> 43 Then ' 43 = olMail
+        ShowMessage "The selected item is not an email."
+        Exit Sub
+    End If
+    
+    ' Get HTML content of the currently selected email and check if it matches the originally extracted email
+    Dim currentHtmlContent As String
+    Dim currentLMNumber As String
+    Dim originalLMNumber As String
+    
+    currentHtmlContent = originalEmail.htmlBody
+    currentLMNumber = ExtractLMNumber(currentHtmlContent)
+    originalLMNumber = txtLM.Text
+    
+    ' Verify that the currently selected email matches the one used for extraction
+    If currentLMNumber <> originalLMNumber Then
+        ShowMessage "The currently selected email does not match the one initially extracted." & vbCrLf & _
+               "Expected LM number: " & originalLMNumber & vbCrLf & _
+               "Current LM number: " & currentLMNumber & vbCrLf & vbCrLf & _
+               "Please select the original email with Legal Matter " & originalLMNumber & " or re-extract data from the current email.", _
+               True
+        Exit Sub
+    End If
+    
+    On Error GoTo 0
+    
+    ' Extract required information
+    ' 1. Get the Requested For name from the HTML content
+    requestedForName = ExtractRequestedForName(txtEmailOutput.Text)
+    
+    ' 2. Get the Contract Manager information from Admin sheet
+    contractManagerFullName = GetContractManagerFullName(cboCM.Text)
+    contractManagerShortName = cboCM.Text
+    
+    ' 3. Get the Assigned RCL (only if not Contract Upload)
+    assignedRCL = ""
+    If contractRequestType <> "Contract Upload" Then
+        assignedRCL = cboRCL.Text
+    End If
+    
+    ' 4. Get email subject
+    emailSubject = txtEmailSubject.Text
+    
+    ' 5. Get recipient email address from the HTML content
+    toRecipient = ExtractContactEmail(txtEmailOutput.Text)
+    
+    ' 6. Get CC recipient (Contract Manager's email)
+    ccRecipient = GetContractManagerEmail(cboCM.Text)
+    
+    ' Set team email address
+    Dim teamEmailAddress As String
+    teamEmailAddress = "Contracting.COE@wtwco.com"
+    
+    ' Determine email content based on contract request type
+    If contractRequestType = "Contract Upload" Then
+        ' Simple message for Contract Upload
+        htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
+                  "<p>Hello " & contractManagerShortName & ",</p>" & _
+                  "<p>Please upload the contract to COMET.</p>" & _
+                  "<p>Thanks,<br>Contracting Management</p>" & _
+                  "</body></html>"
+    ElseIf contractRequestType = "Out of Scope" Then
+        ' Out of Scope email with specified format
+        htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
+                  "<p>Hello " & requestedForName & ",</p>" & _
+                  "<p>Thank you for submitting your Contract Support Request. Please be advised however that this type of request is out of scope of the Client Contract Management Team. </p>" & _
+                  "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Client Contract Management</p>" & _
+                  "</body></html>"
+        
+
+    ElseIf contractRequestType = "Duplicate Request" Then
+        ' Simple message for Duplicate Request
+        htmlBody = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">" & _
+                  "<p>Hello " & requestedForName & ",</p>" & _
+                  "<p>This has been identified as a Duplicate Request. Please see the original request.</p>" & _
+                   "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Client Contract Management</p>" & _
+                  "</body></html>"
+    ElseIf contractRequestType = "Contract Review" Then
+        ' Use appropriate template based on selection
+        If emailTemplate = "RFP" Then
+            htmlBody = LoadRFPEmailTemplate()
+            
+            ' Replace placeholders with actual data for RFP template
+            htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Full Name>>", contractManagerFullName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Short Name>>", contractManagerShortName)
+            htmlBody = Replace(htmlBody, "<<Assigned RCL cboRCL>>", assignedRCL)
+            htmlBody = Replace(htmlBody, "<<Client or Supplier Name>>", txtClient.Text)
+        ElseIf emailTemplate = "Standard Urgent" Then
+            ' Use Urgent template
+            htmlBody = LoadUrgentEmailTemplate()
+            
+            ' Replace placeholders with actual data
+            htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Full Name>>", contractManagerFullName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Short Name>>", contractManagerShortName)
+            htmlBody = Replace(htmlBody, "<<Assigned RCL cboRCL>>", assignedRCL)
+        Else
+            ' Standard template
+            htmlBody = LoadEmailTemplate()
+            
+            ' Replace placeholders with actual data for standard template
+            htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Full Name>>", contractManagerFullName)
+            htmlBody = Replace(htmlBody, "<<Contract Manager Short Name>>", contractManagerShortName)
+            htmlBody = Replace(htmlBody, "<<Assigned RCL cboRCL>>", assignedRCL)
+        End If
+    Else
+        ' Use standard template for all other cases
+        htmlBody = LoadEmailTemplate()
+        
+        ' Replace placeholders with actual data
+        htmlBody = Replace(htmlBody, "<<Requested For: Name>>", requestedForName)
+        htmlBody = Replace(htmlBody, "<<Contract Manager Full Name>>", contractManagerFullName)
+        htmlBody = Replace(htmlBody, "<<Contract Manager Short Name>>", contractManagerShortName)
+        htmlBody = Replace(htmlBody, "<<Assigned RCL cboRCL>>", assignedRCL)
+    End If
+    
+    ' Ask user if they want to create a new email or forward the original
+    Dim response As Integer
+    Dim promptMsg As String
+    
+    ' Create prompt message with information about the selected template
+    If contractRequestType = "Contract Upload" Then
+        promptMsg = "You're about to send a Contract Upload email. Do you want to forward the original email with this template?"
+    ElseIf contractRequestType = "Out of Scope" Then
+        promptMsg = "You're about to send an Out of Scope email. Do you want to forward the original email with this template?"
+    ElseIf contractRequestType = "Duplicate Request" Then
+        promptMsg = "You're about to send a Duplicate Request email. Do you want to forward the original email with this template?"
+    ElseIf contractRequestType = "Contract Review" Then
+        promptMsg = "You're about to send a Contract Review email using the " & emailTemplate & " template. Do you want to forward the original email with this template?"
+    Else
+        promptMsg = "Do you want to forward the original email with the template?"
+    End If
+    
+    response = MsgBox(promptMsg, vbQuestion + vbYesNo, "Email Options")
+    
+    ' If No is selected, exit the process
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Forward the original email (only happens if Yes was selected)
+    Set forwardEmail = originalEmail.Forward
+    
+    ' Set mail properties for forwarded email
+    With forwardEmail
+        .Subject = emailSubject
+        .htmlBody = htmlBody & "<hr>" & .htmlBody
+        
+        ' Set the sender to the team mailbox
+        .SentOnBehalfOfName = teamEmailAddress
+        
+        ' Add recipients based on contract request type
+        If contractRequestType = "Contract Upload" Then
+            ' For Contract Upload, only send to Contract Manager
+            If ccRecipient <> "" Then
+                .To = ccRecipient
+            End If
+        ElseIf contractRequestType = "Out of Scope" Then
+            ' For Out of Scope, set specific recipients based on the template
+            If toRecipient <> "" Then
+                .To = toRecipient
+            End If
+            .CC = teamEmailAddress
+        ElseIf contractRequestType = "Duplicate Request" Then
+            '                 If toRecipient <> "" Then
+            If toRecipient <> "" Then
+                .To = toRecipient
+            End If
+            .CC = teamEmailAddress
+            ' Do nothing here - don't set any recipients
+        ElseIf contractRequestType = "Contract Review" Then
+            ' For Contract Review, include RCL email in CC
+            If toRecipient <> "" Then
+                .To = toRecipient
+            End If
+            
+            ' Combine Contract Manager email and RCL email in CC field
+            Dim combinedCC As String
+            combinedCC = ""
+            
+            If ccRecipient <> "" Then
+                combinedCC = ccRecipient
+            End If
+            
+            If Trim(txtRCLemail.Text) <> "" Then
+                If combinedCC <> "" Then
+                    combinedCC = combinedCC & ";" & txtRCLemail.Text
+                Else
+                    combinedCC = txtRCLemail.Text
+                End If
+            End If
+            
+            If combinedCC <> "" Then
+                .CC = combinedCC
+            End If
+        Else
+            ' For other types, use both to and cc recipients
+            If toRecipient <> "" Then
+                .To = toRecipient
+            End If
+            
+            If ccRecipient <> "" Then
+                .CC = ccRecipient
+            End If
+        End If
+        
+        ' Display the email without sending
+        .Display
+    End With
+    
+    ShowMessage "Forward email has been composed with your template and the original email."
+    
+    ' Reset the change status after successfully sending the email
+    ResetChangeStatus
+    
+    ' Clean up
+    Set mailItem = Nothing
+    Set forwardEmail = Nothing
+    Set originalEmail = Nothing
+    Set selection = Nothing
+    Set explorer = Nothing
+    Set outlookApp = Nothing
+End Sub
+
+' Function to extract Requested For name from HTML content
+Function ExtractRequestedForName(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long, endPos As Long, nameStart As Long
+    Dim fullName As String, firstName As String
+    
+    startPattern = "Requested For"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Find the name after "Requested For"
+        nameStart = InStr(startPos, htmlContent, ":")
+        If nameStart = 0 Then ' Try with different pattern
+            nameStart = InStr(startPos, htmlContent, "</b></td>" & vbCrLf & "<td>")
+            If nameStart > 0 Then
+                nameStart = nameStart + Len("</b></td>" & vbCrLf & "<td>")
+                endPos = InStr(nameStart, htmlContent, "</td>")
+                If endPos > 0 Then
+                    fullName = Trim(mid(htmlContent, nameStart, endPos - nameStart))
+                End If
+            End If
+        Else
+            nameStart = nameStart + 1
+            endPos = InStr(nameStart, htmlContent, vbCrLf)
+            If endPos > 0 Then
+                fullName = Trim(mid(htmlContent, nameStart, endPos - nameStart))
+            End If
+        End If
+        
+        ' Extract first name only if full name contains a space
+        If InStr(fullName, " ") > 0 Then
+            firstName = Left(fullName, InStr(fullName, " ") - 1)
+            ExtractRequestedForName = firstName
+        Else
+            ExtractRequestedForName = fullName
+        End If
+    Else
+        ExtractRequestedForName = ""
+    End If
+End Function
+
+' Function to extract Contact's email from HTML content
+Function ExtractContactEmail(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long, endPos As Long, emailStart As Long
+    
+    startPattern = "Contact's email"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Find the email after "Contact's email"
+        emailStart = InStr(startPos, htmlContent, ":")
+        If emailStart = 0 Then ' Try with different pattern
+            emailStart = InStr(startPos, htmlContent, "</b></td>" & vbCrLf & "<td>")
+            If emailStart > 0 Then
+                emailStart = emailStart + Len("</b></td>" & vbCrLf & "<td>")
+                endPos = InStr(emailStart, htmlContent, "</td>")
+                If endPos > 0 Then
+                    ExtractContactEmail = Trim(mid(htmlContent, emailStart, endPos - emailStart))
+                End If
+            End If
+        Else
+            emailStart = emailStart + 1
+            endPos = InStr(emailStart, htmlContent, vbCrLf)
+            If endPos > 0 Then
+                ExtractContactEmail = Trim(mid(htmlContent, emailStart, endPos - emailStart))
+            End If
+        End If
+    Else
+        ExtractContactEmail = ""
+    End If
+End Function
+
+' Function to get Contract Manager Full Name from Admin sheet
+Function GetContractManagerFullName(cmShortName As String) As String
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Admin")
+    If ws Is Nothing Then
+        GetContractManagerFullName = cmShortName
+        Exit Function
+    End If
+    
+    ' Find the last row in column W (UserID column)
+    lastRow = ws.Cells(ws.Rows.Count, "W").End(xlUp).Row
+    
+    ' Loop through to find the Contract Manager by Short Name
+    For i = 4 To lastRow ' Start from row 4 as specified
+        If UCase(Trim(ws.Cells(i, "Y").Value)) = UCase(Trim(cmShortName)) Then
+            ' Return the Full Name from column X
+            GetContractManagerFullName = ws.Cells(i, "X").Value
+            Exit Function
+        End If
+    Next i
+    
+    ' If not found, return the original name
+    GetContractManagerFullName = cmShortName
+End Function
+
+' Function to get Contract Manager Email from Admin sheet
+Function GetContractManagerEmail(cmShortName As String) As String
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets("Admin")
+    If ws Is Nothing Then
+        GetContractManagerEmail = ""
+        Exit Function
+    End If
+    
+    ' Find the last row in column W (UserID column)
+    lastRow = ws.Cells(ws.Rows.Count, "W").End(xlUp).Row
+    
+    ' Loop through to find the Contract Manager by Short Name
+    For i = 4 To lastRow ' Start from row 4 as specified
+        If UCase(Trim(ws.Cells(i, "Y").Value)) = UCase(Trim(cmShortName)) Then
+            ' Return the Email from column Z
+            GetContractManagerEmail = ws.Cells(i, "Z").Value
+            Exit Function
+        End If
+    Next i
+    
+    ' If not found, return empty string
+    GetContractManagerEmail = ""
+End Function
+
+' Function to load the standard email template - simplified with minimal HTML and split into sections
+Function LoadEmailTemplate() As String
+    ' This version splits the HTML into multiple smaller sections to avoid line continuation limits
+    Dim html1 As String, html2 As String, html3 As String
+    
+    ' Part 1: Basic opening and intro text
+    html1 = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">"
+    html1 = html1 & "<p>Hello <<Requested For: Name>>,</p>"
+    html1 = html1 & "<p>Thank you for submitting your Contract Support Request. <b><<Contract Manager Full Name>></b> will be your Contract Specialist for this request.</p>"
+    html1 = html1 & "<p>Your contract review is currently with your project manager who is completing a high-level review, prior to us sending it out to the necessary reviewers.</p>"
+    html1 = html1 & "<p><b><<Contract Manager Short Name>></b> will be keeping you updated on the status as we move through the review process. If you have any questions, please contact the Contract Specialist for this request.</p>"
+    
+    ' Part 2: Middle section with details
+    html2 = "<p><b>Please provide</b> any applications that are in scope for this project, if not already provided in the intake form. If an ICS review is needed, this is required due to how ICS assigns out. Their SLA will not start until the applications are provided to their team.</p>"
+    html2 = html2 & "<p><b>Your assigned legal contact</b> at this point in time is <<Assigned RCL cboRCL>>.</p>"
+    html2 = html2 & "<p>As a reminder, please make sure to include your project manager in <b>any and all internal</b> communications with pertinent stakeholders regarding this contract request. This will ensure that the project manager is able to provide the proper level of support and keep your reviews moving forward.</p>"
+    html2 = html2 & "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Contracting Management</p>"
+    
+    ' Part 3: Table section with process steps
+    html3 = "<table style=""width:100%;background-color:#D9E2F3;border:1px solid #ccc;"">"
+    html3 = html3 & "<tr><td style=""padding:10px;"">"
+    html3 = html3 & "<p><b><u>Process Steps</u></b></p>"
+    html3 = html3 & "<p style=""font-style:italic;"">*Estimated time from receiving this email to receiving the 1<sup>st</sup> redline draft to be sent to the client will vary depending on complexity of the contract and the number of SMEs involved. If only legal review is required, then the process time will be approximately 5 to 10 business days or less depending on the nature of the request. If other SME reviews are required, the process time can take up to 15 business days or more in some extreme cases.</p>"
+    html3 = html3 & "</td></tr><tr><td style=""padding:10px;"">"
+    html3 = html3 & "<ul>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to do a high-level review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to send and manage identified SMEs reviews (ICS, Privacy, HR, Insurance...etc.)</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">SME reviews completed – Sent to Legal for full Legal Review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to consolidate and clean up document/s</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">If needed - Requestor and necessary members of the team to meet internally to discuss redlines</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">Requestor to send to client for review</li>"
+    html3 = html3 & "</ul>"
+    html3 = html3 & "<p style=""font-style:italic;"">**If client has added redlines and/or comments, including exceptions to WTW standard (modified language or additional provisions), additional involvement with Legal and/or SMEs will be needed after the first round of WTW redlines</p>"
+    html3 = html3 & "<p style=""font-style:italic;"">Due to capacity issues within the current Privacy team, documents with privacy language are initially reviewed by the assigned Legal Counsel, if they're unable to approve, they will send directly to the Privacy team for review. This is likely to increase processing time</p>"
+    html3 = html3 & "</td></tr></table></body></html>"
+    
+    ' Combine all parts
+    LoadEmailTemplate = html1 & html2 & html3
+End Function
+
+' Function to load the Standard Urgent email template - includes the urgency line
+Function LoadUrgentEmailTemplate() As String
+    ' This version splits the HTML into multiple smaller sections to avoid line continuation limits
+    Dim html1 As String, html2 As String, html3 As String
+    
+    ' Part 1: Basic opening and intro text
+    html1 = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">"
+    html1 = html1 & "<p>Hello <<Requested For: Name>>,</p>"
+    html1 = html1 & "<p>Thank you for submitting your Contract Support Request. <b><<Contract Manager Full Name>></b> will be your Contract Specialist for this request.</p>"
+    html1 = html1 & "<p>Your contract review is currently with your project manager who is completing a high-level review, prior to us sending it out to the necessary reviewers.</p>"
+    html1 = html1 & "<p><b><<Contract Manager Short Name>></b> will be keeping you updated on the status as we move through the review process. If you have any questions, please contact the Contract Specialist for this request.</p>"
+    
+    ' Part 2: Middle section with details - including the urgency line
+    html2 = "<p>We acknowledge the urgency of the matter. However, please be advised that, given the current workload, it may not be feasible to accommodate the requested deadline. Kindly ensure that client expectations are managed correctly. However, if there is a business reason for the urgency, please provide and we will do our best to meet the requested deadline.</p>"
+    html2 = html2 & "<p><b>Please provide</b> any applications that are in scope for this project, if not already provided in the intake form. If an ICS review is needed, this is required due to how ICS assigns out. Their SLA will not start until the applications are provided to their team.</p>"
+    html2 = html2 & "<p><b>Your assigned legal contact</b> at this point in time is <<Assigned RCL cboRCL>>.</p>"
+    html2 = html2 & "<p>As a reminder, please make sure to include your project manager in <b>any and all internal</b> communications with pertinent stakeholders regarding this contract request. This will ensure that the project manager is able to provide the proper level of support and keep your reviews moving forward.</p>"
+    html2 = html2 & "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Contracting Management</p>"
+    
+    ' Part 3: Table section with process steps
+    html3 = "<table style=""width:100%;background-color:#D9E2F3;border:1px solid #ccc;"">"
+    html3 = html3 & "<tr><td style=""padding:10px;"">"
+    html3 = html3 & "<p><b><u>Process Steps</u></b></p>"
+    html3 = html3 & "<p style=""font-style:italic;"">*Estimated time from receiving this email to receiving the 1<sup>st</sup> redline draft to be sent to the client will vary depending on complexity of the contract and the number of SMEs involved. If only legal review is required, then the process time will be approximately 5 to 10 business days or less depending on the nature of the request. If other SME reviews are required, the process time can take up to 15 business days or more in some extreme cases.</p>"
+    html3 = html3 & "</td></tr><tr><td style=""padding:10px;"">"
+    html3 = html3 & "<ul>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to do a high-level review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to send and manage identified SMEs reviews (ICS, Privacy, HR, Insurance...etc.)</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">SME reviews completed – Sent to Legal for full Legal Review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to consolidate and clean up document/s</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">If needed - Requestor and necessary members of the team to meet internally to discuss redlines</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">Requestor to send to client for review</li>"
+    html3 = html3 & "</ul>"
+    html3 = html3 & "<p style=""font-style:italic;"">**If client has added redlines and/or comments, including exceptions to WTW standard (modified language or additional provisions), additional involvement with Legal and/or SMEs will be needed after the first round of WTW redlines</p>"
+    html3 = html3 & "</td></tr></table></body></html>"
+    
+    ' Combine all parts
+    LoadUrgentEmailTemplate = html1 & html2 & html3
+End Function
+
+' Function to load the RFP email template - simplified with minimal HTML and split into sections
+Function LoadRFPEmailTemplate() As String
+    ' This version splits the HTML into multiple smaller sections to avoid line continuation limits
+    Dim html1 As String, html2 As String, html3 As String
+    
+    ' Part 1: Basic opening and intro text
+    html1 = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">"
+    html1 = html1 & "<p>Hello <<Requested For: Name>>,</p>"
+    html1 = html1 & "<p>Thank you for submitting the Contract Support Request. <b><<Contract Manager Full Name>></b> will be your Contract Specialist for this request.</p>"
+    html1 = html1 & "<p>Your contract review is currently with your contract manager who is completing a high-level review, prior to us sending it out to the necessary reviewers.</p>"
+    
+    ' Part 2: Middle section with RFP-specific details
+    html2 = "<p>It is standard procedure for ICS and Legal to not redline contracts that come in with RFPs.</p>"
+    html2 = html2 & "<p>However, if we are currently doing business with <b><<Client or Supplier Name>></b>, and have an active signed MSA in place, some clients will say that there is no need to do a review. <<Assigned RCL cboRCL>> is the legal resource for this request, and can be the decider on how to proceed, to redline or not.</p>"
+    html2 = html2 & "<p>But of course, if need be, we will do a review, as we do not want to lose business.</p>"
+    html2 = html2 & "<p>However, of course, if we know that will not work and will harm our ability to win new business or keep old, we will sometimes consider it on an exception basis. If the code is kept high level and consistent with our own (as many are) then we may take a quick look and if the business agrees we can comply and based on our review there is not something objectionable (sometimes there could be something specific or beyond our code on social or environmental issues, for example), then we may take a risk based approach and agree.</p>"
+    html2 = html2 & "<p>Please let us know</p>"
+    html2 = html2 & "<p><b><u>If not already provided</u></b><b>, please provide the client RFP requirements i.e. instruction documentation. The review is on hold until we receive this.</b></p>"
+    html2 = html2 & "<p><b><<Contract Manager Short Name>></b> will be keeping you updated on the status as we move though the review process. If you have any questions, please contact the Contract Specialist for this request.</p>"
+    html2 = html2 & "<p>Thank you,<br>Sales Operation | Contract and Proposal Centre of Excellence<br>Contracting Management</p>"
+    
+    ' Part 3: Table section with process steps
+    html3 = "<table style=""width:100%;background-color:#D9E2F3;border:1px solid #ccc;"">"
+    html3 = html3 & "<tr><td style=""padding:10px;"">"
+    html3 = html3 & "<p><b><u>Process Steps</u></b></p>"
+    html3 = html3 & "<p style=""font-style:italic;"">*Estimated time from receiving this email to receiving the 1<sup>st</sup> redline draft to be sent to the client will vary depending on complexity of the contract and the number of SMEs involved. If only legal review is required, then the process time will be approximately 5 to 10 business days or less depending on the nature of the request. If other SME reviews are required, the process time can take up to 15 business days.</p>"
+    html3 = html3 & "</td></tr><tr><td style=""padding:10px;"">"
+    html3 = html3 & "<ul>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to do a high-level review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to send and manage identified SMEs reviews (ICS, Privacy, HR, Insurance...etc.)</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">SME reviews completed – Sent to Legal for full Legal Review</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">PM to consolidate and clean up document/s</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">If needed - Requestor and necessary members of the team to meet internally to discuss redlines</li>"
+    html3 = html3 & "<li style=""font-style:italic;"">Requestor to send to client for review</li>"
+    html3 = html3 & "</ul>"
+    html3 = html3 & "<p style=""font-style:italic;"">**If client has added redlines and/or comments, including exceptions to WTW standard (modified language or additional provisions), additional involvement with Legal and/or SMEs will be needed after the first round of WTW redlines</p>"
+    html3 = html3 & "</td></tr></table></body></html>"
+    
+    ' Combine all parts
+    LoadRFPEmailTemplate = html1 & html2 & html3
+End Function
+
+' Function to validate required fields for email
+Function ValidateRequiredFieldsForEmail() As Boolean
+    Dim errorMessage As String
+    Dim contractRequestType As String
+    
+    errorMessage = ""
+    contractRequestType = cboRequest.Text
+    
+    ' Check each required field
+    If Trim(txtCoordinator.Text) = "" Then
+        errorMessage = errorMessage & "- Coordinator" & vbCrLf
+    End If
+    
+    If Trim(txtDate.Text) = "" Then
+        errorMessage = errorMessage & "- Date" & vbCrLf
+    End If
+    
+    If Trim(txtEmailSubject.Text) = "" Then
+        errorMessage = errorMessage & "- Email Subject" & vbCrLf
+    End If
+    
+    If Trim(txtLM.Text) = "" Then
+        errorMessage = errorMessage & "- LM" & vbCrLf
+    End If
+    
+    If Trim(cboRequest.Text) = "" Then
+        errorMessage = errorMessage & "- Contract Request" & vbCrLf
+    End If
+    
+    If Trim(txtClient.Text) = "" Then
+        errorMessage = errorMessage & "- Client Name" & vbCrLf
+    End If
+    
+    If Trim(cboRegion.Text) = "" Then
+        errorMessage = errorMessage & "- Region" & vbCrLf
+    End If
+    
+    ' Additional required fields for email - RCL and CDR only required for certain request types
+    If contractRequestType <> "Contract Upload" And contractRequestType <> "Out of Scope" And contractRequestType <> "Duplicate Request" Then
+        If Trim(cboRCL.Text) = "" Then
+            errorMessage = errorMessage & "- Assigned RCL" & vbCrLf
+        End If
+        
+        If Trim(txtRCLemail.Text) = "" Then
+            errorMessage = errorMessage & "- RCL Email" & vbCrLf
+        ElseIf Not IsValidEmail(Trim(txtRCLemail.Text)) Then
+            errorMessage = errorMessage & "- RCL Email (invalid format)" & vbCrLf
+        End If
+        
+        If Trim(txtCDR.Text) = "" Then
+            errorMessage = errorMessage & "- CDR or Request number" & vbCrLf
+        End If
+    End If
+    
+    If Trim(cboCM.Text) = "" Then
+        errorMessage = errorMessage & "- Contract Manager" & vbCrLf
+    End If
+    
+    ' If there are any missing fields, show error message and return False
+    If errorMessage <> "" Then
+        ShowMessage "The following required fields must be filled before sending an email:" & vbCrLf & vbCrLf & _
+               errorMessage & vbCrLf & _
+               "Please fill in all required fields."
+        ValidateRequiredFieldsForEmail = False
+    Else
+        ValidateRequiredFieldsForEmail = True
+    End If
+End Function
+
+' Function to clean up LM number by removing extra spaces and special characters
+Function CleanLMNumber(lmNum As String) As String
+    Dim cleanedLM As String
+    Dim i As Long
+    Dim char As String
+    
+    cleanedLM = ""
+    
+    ' Remove any extra spaces or special characters
+    For i = 1 To Len(lmNum)
+        char = mid(lmNum, i, 1)
+        If char <> " " And char <> "," And char <> ";" And char <> ":" Then
+            cleanedLM = cleanedLM & char
+        End If
+    Next i
+    
+    CleanLMNumber = cleanedLM
+End Function
+
+' Function to mark the form as having unsaved changes
+Sub MarkAsChanged()
+    ' Set the global flag to indicate changes
+    HasChanges = True
+    
+    ' Update the label to show unsaved changes
+    lblChangeStatus.Caption = "Unsaved Changes"
+    lblChangeStatus.ForeColor = RGB(192, 0, 0) ' Dark red color
+End Sub
+
+' Function to reset the change status after saving
+Sub ResetChangeStatus()
+    ' Reset the global flag
+    HasChanges = False
+    
+    ' Clear the label
+    lblChangeStatus.Caption = ""
+End Sub
+
+' Add more change event handlers for fields that don't already have them
+Private Sub txtCoordinator_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub txtDate_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub txtRCLemail_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub txtRemarks_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub txtLOB_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub cboRegion_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub cboCM_Change()
+    MarkAsChanged
+End Sub
+
+'Private Sub cboEmailType_Change()
+'    MarkAsChanged
+'End Sub
+Private Sub cboRCL_Change()
+    MarkAsChanged
+End Sub
+
+Private Sub chkComet_Click()
+    MarkAsChanged
+End Sub
+
+Private Sub chkOverrideCM_Click()
+    ' Enable/disable the Contract Manager combobox based on checkbox state
+    cboCM.Locked = Not chkOverrideCM.Value
+    'MarkAsChanged
+End Sub
+
+' Check for unsaved changes when closing the form
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    ' Only check if user is closing the form (not if VBA code is closing it)
+    If CloseMode = vbFormControlMenu Then
+        ' If there are unsaved changes, confirm before closing
+        If HasChanges Then
+            Dim response As Integer
+            response = MsgBox("You have unsaved changes. Do you want to save them before closing?", _
+                             vbQuestion + vbYesNoCancel, "Unsaved Changes")
+            
+            Select Case response
+                Case vbYes
+                    ' Try to save data
+                    SaveFormData
+                    ' If still has changes after attempting to save, cancel closing
+                    If HasChanges Then
+                        Cancel = True
+                    End If
+                Case vbCancel
+                    ' Cancel closing the form
+                    Cancel = True
+                Case vbNo
+                    ' Continue closing without saving
+            End Select
+        End If
+    End If
+End Sub
+
+Sub LoadRCLData()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    ' Set Reference to the References worksheet
+    Set ws = ThisWorkbook.Sheets("References")
+    
+    ' Find the last row with data in column C
+    lastRow = ws.Cells(ws.Rows.Count, "C").End(xlUp).Row
+    
+    ' Clear the RCL combo box
+    cboRCL.Clear
+    
+    ' Loop through the data starting from row 2 (assuming row 1 is header)
+    For i = 2 To lastRow
+        If Not IsEmpty(ws.Cells(i, "C").Value) Then
+            cboRCL.AddItem ws.Cells(i, "C").Value
+        End If
+    Next i
+    
+    ' Set to no selection initially
+    cboRCL.ListIndex = -1
+End Sub
+
+' Add handler for ImgCDRSearch MouseUp event
+Private Sub ImgCDRSearch_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    ' Search for CDR number in Box Assignment Tracker
+    SearchCDRNumber
+End Sub
+
+' Function to search for CDR number in Box Assignment Tracker sheet column R
+Sub SearchCDRNumber()
+    On Error GoTo ErrorHandler
+    
+    ' Get the CDR number from the form and trim it
+    Dim cdrNumber As String
+    cdrNumber = Trim(txtCDR.Text)
+    
+    ' Validate that a CDR number is entered
+    If cdrNumber = "" Then
+        ShowMessage "Please enter a CDR number to search."
+        txtCDR.SetFocus
+        Exit Sub
+    End If
+    
+    ' Confirm search with the user
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to search for CDR number: " & cdrNumber & "?", _
+                     vbQuestion + vbYesNo, "Confirm Search")
+    
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Reference the worksheet
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("Box Assignment Tracker")
+    
+    ' Search for the CDR number in column R
+    Dim foundCell As Range
+    Set foundCell = ws.Columns("R").Find(What:=cdrNumber, _
+                                      LookIn:=xlValues, _
+                                      LookAt:=xlWhole, _
+                                      SearchOrder:=xlByRows, _
+                                      SearchDirection:=xlNext, _
+                                      MatchCase:=False)
+    
+    ' Check if CDR number is found
+    If foundCell Is Nothing Then
+        ShowMessage "CDR number " & cdrNumber & " was not found in the Box Assignment Tracker."
+        Exit Sub
+    End If
+    
+    ' Find all occurrences of the CDR number to check for duplicates
+    Dim firstAddress As String
+    Dim duplicateCount As Integer
+    Dim duplicateRows As String
+    
+    firstAddress = foundCell.Address
+    duplicateCount = 1
+    duplicateRows = foundCell.Row & ""
+    
+    ' Continue searching for more occurrences
+    Dim currentCell As Range
+    Set currentCell = foundCell
+    
+    Do
+        Set currentCell = ws.Columns("R").FindNext(After:=currentCell)
+        
+        ' Check if we've completed a full search cycle
+        If currentCell Is Nothing Or currentCell.Address = firstAddress Then
+            Exit Do
+        End If
+        
+        ' Only count if it's an exact match
+        If currentCell.Value = cdrNumber Then
+            duplicateCount = duplicateCount + 1
+            duplicateRows = duplicateRows & ", " & currentCell.Row
+        End If
+    Loop
+    
+    ' If duplicates found, prompt the user to select one
+    Dim rowNum As Long
+    
+    If duplicateCount > 1 Then
+        ' Multiple entries found - Ask which one to use
+        Dim rowSelected As String
+        rowSelected = InputBox("Multiple entries found with CDR " & cdrNumber & " at rows: " & _
+                             duplicateRows & vbCrLf & vbCrLf & _
+                             "Enter the row number to use:", "Select Row", "")
+        
+        If rowSelected = "" Then
+            Exit Sub  ' User cancelled
+        End If
+        
+        ' Validate the row number entered
+        On Error Resume Next
+        rowNum = CLng(rowSelected)
+        On Error GoTo ErrorHandler
+        
+        If rowNum <= 0 Or rowNum > ws.Rows.Count Then
+            ShowMessage "Invalid row number. Please enter a valid row number."
+            Exit Sub
+        End If
+        
+        ' Check if the entered row number is actually one of the duplicate rows
+        If InStr(1, duplicateRows, CStr(rowNum)) = 0 Then
+            ShowMessage "The row number you entered doesn't contain the CDR number. Please select from rows: " & _
+                   duplicateRows
+            Exit Sub
+        End If
+    Else
+        ' Just one match found - use that row
+        rowNum = foundCell.Row
+    End If
+    
+    ' Clear form fields first to ensure clean data loading
+    ClearFormFields
+    
+    ' Populate form fields with data from the found row
+    txtCoordinator.Text = ws.Cells(rowNum, "A").Value
+    txtDate.Text = ws.Cells(rowNum, "B").Value
+    txtEmailSubject.Text = ws.Cells(rowNum, "C").Value
+    txtLM.Text = ws.Cells(rowNum, "D").Value
+    
+    ' Set the Request Type combobox
+    Dim requestValue As String
+    requestValue = ws.Cells(rowNum, "E").Value
+    
+    Dim validRequest As Boolean
+    validRequest = False
+    For i = 0 To cboRequest.ListCount - 1
+        If cboRequest.List(i) = requestValue Then
+            cboRequest.Text = requestValue
+            validRequest = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid request type, set to empty
+    If Not validRequest Then
+        cboRequest.ListIndex = -1
+    End If
+    
+    ' Check if Comet is marked
+    If UCase(Trim(ws.Cells(rowNum, "G").Value)) = "YES" Then
+        chkComet.Value = True
+    Else
+        chkComet.Value = False
+    End If
+    
+    ' Continue populating other fields
+    txtClient.Text = ws.Cells(rowNum, "H").Value
+    txtContractType.Text = ws.Cells(rowNum, "I").Value
+    txtLOB.Text = ws.Cells(rowNum, "J").Value
+    
+    ' Set the Region combobox
+    Dim regionValue As String
+    regionValue = ws.Cells(rowNum, "K").Value
+    
+    Dim validRegion As Boolean
+    validRegion = False
+    For i = 0 To cboRegion.ListCount - 1
+        If cboRegion.List(i) = regionValue Then
+            cboRegion.Text = regionValue
+            validRegion = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid region, set to empty
+    If Not validRegion Then
+        cboRegion.ListIndex = -1
+    End If
+    
+    ' Set the Assigned RCL (Column P)
+    cboRCL.Text = ws.Cells(rowNum, "P").Value
+    
+    ' Set the Contract Manager (Column Q)
+    Dim cmValue As String
+    cmValue = ws.Cells(rowNum, "Q").Value
+    
+    ' First make sure it's unlocked
+    chkOverrideCM.Value = True
+    
+    Dim validCM As Boolean
+    validCM = False
+    For i = 0 To cboCM.ListCount - 1
+        If cboCM.List(i) = cmValue Then
+            cboCM.Text = cmValue
+            validCM = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid CM, set to empty
+    If Not validCM Then
+        cboCM.ListIndex = -1
+    End If
+    
+    ' Set CDR Number (Column R)
+    txtCDR.Text = ws.Cells(rowNum, "R").Value
+    
+    ' Set Remarks (Column S)
+    txtRemarks.Text = ws.Cells(rowNum, "S").Value
+    
+    ' Leave txtRCLemail blank as requested
+    txtRCLemail.Text = ""
+    
+    ' Save the row number for future use
+    lblRowNum.Caption = "Record from row: " & rowNum
+    
+    ' Inform the user
+    ShowMessage "Successfully loaded record for CDR number " & cdrNumber & " from row " & rowNum & "."
+    
+    ' Reset the change status since we just loaded new data
+    ResetChangeStatus
+           
+    Exit Sub
+    
+ErrorHandler:
+    ShowMessage "An error occurred while searching for the CDR number: " & Err.Description
+End Sub
+
+' Function to display messages in the label instead of using MsgBox for informational messages
+Private Sub DisplayMessage(message As String, Optional clearAfterDelay As Boolean = False, Optional delaySeconds As Integer = 5)
+    ' Display the message in the label
+    lblMsg.Text = message
+    lblMsg.Visible = True
+    
+    ' Optionally clear the message after a delay
+    If clearAfterDelay Then
+        ' Instead of using OnTime, we'll simply clear immediately
+        ' This avoids the timing issue with callbacks
+        lblMsg.Text = message
+    End If
+End Sub
+
+' Function to clear the message label (called by OnTime)
+Public Sub ClearMessageLabel()
+    lblMsg.Text = ""
+End Sub
+
+' Simplified function to display messages in the label without automatic clearing
+Private Sub ShowMessage(message As String)
+    ' Display the message in the label
+    lblMsg.Text = message
+    lblMsg.Visible = True
+End Sub
+
+' Simplified function to display messages in the label without automatic clearing
+Private Sub ShowMessage(message As String, Optional unused As Variant)
+    ' Display the message in the label
+    lblMsg.Text = message
+    lblMsg.Visible = True
+End Sub
+
+' Function to display messages in the label
+Private Sub ShowMessage(message As String, Optional unused As Variant)
+    ' Display the message in the label
+    lblMsg.Text = message
+    lblMsg.Visible = True
+End Sub
+
+
+
+
+
+
+
+
+
+
+
+
+
+

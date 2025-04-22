@@ -1,0 +1,31 @@
+Example Contract Clauses for Testing
+
+1. Fully Capped Liability:
+In no event shall either party be liable to the other party or any third party for any indirect, special, incidental, exemplary, or consequential damages or loss of goodwill or profits. Each party's total cumulative liability under this Agreement shall not exceed the amounts paid by Customer to Vendor during the twelve (12) months immediately preceding the event giving rise to the claim.
+
+2. Uncapped Liability (Unlimited):
+Each party shall be liable for all damages arising from their breach of this Agreement, including but not limited to direct, indirect, consequential, and incidental damages. This includes, without limitation, any damages resulting from unauthorized disclosure of confidential information or breach of data security provisions.
+
+3. Partially Capped Liability:
+Vendor's liability for direct damages shall be limited to the total fees paid by Customer in the 12 months preceding the claim. However, no limitation shall apply to Vendor's indemnification obligations or breaches of confidentiality, security, or intellectual property provisions.
+
+4. Capped with Carve-outs:
+Neither party's liability shall exceed the greater of (i) $500,000 or (ii) two times the amount paid by Customer to Vendor in the 12 months preceding the claim, except that such limitations shall not apply to: (a) either party's indemnification obligations; (b) breaches of confidentiality; (c) gross negligence or willful misconduct; or (d) intellectual property infringement.
+
+5. Uncapped for Specific Scenarios:
+Vendor's total liability under this Agreement shall not exceed the fees paid in the preceding 12 months, except in cases of: (i) bodily injury or death caused by Vendor's negligence; (ii) fraud or fraudulent misrepresentation; (iii) willful misconduct; or (iv) any other liability that cannot be limited under applicable law.
+
+6. Mutual Cap with Exclusions:
+Each party's aggregate liability shall not exceed the greater of $1,000,000 or the fees paid under this Agreement in the previous year. This limitation does not apply to: (a) payment obligations; (b) confidentiality breaches; (c) IP infringement; or (d) bodily injury caused by negligence.
+
+7. Limited to Direct Damages Only:
+The parties agree that each party shall only be liable for direct damages. In no event shall either party be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to lost revenue, lost profits, replacement goods, loss of technology, rights or services, loss of data, or interruption or loss of use of service or equipment.
+
+8. Uncapped with Exclusions:
+Vendor shall be liable for all damages arising from or related to this Agreement, excluding only indirect, special, incidental, consequential, and punitive damages. The liability of Customer shall be limited to the fees paid to Vendor.
+
+9. Complex Unlimited Liability:
+Notwithstanding anything to the contrary in this Agreement, Vendor's liability shall not be limited for (i) Vendor's indemnification obligations; (ii) bodily injury, death, or damage to tangible property; (iii) violations of applicable laws; (iv) fraud, gross negligence, or willful misconduct; (v) breaches of confidentiality obligations; or (vi) any other liability that cannot be limited by applicable law.
+
+10. Damage Types with Mixed Caps:
+Customer's liability shall be limited to direct damages and shall not exceed the total fees paid to Vendor during the term of the Agreement. Vendor's liability for direct damages shall be limited to the amount paid by Customer in the prior 12 months. However, Vendor's liability for damages arising from breaches of security, confidentiality, or data protection shall be uncapped and include both direct and indirect damages. 

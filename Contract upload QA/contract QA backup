@@ -1,0 +1,1722 @@
+
+Public IsOpen As Boolean
+Dim dataArray As Variant ' Declare dataArray at the module level to make it accessible across all subroutines
+Dim headersArray As Variant ' Declare headersArray to store the headers
+
+Private checkboxNames As Variant
+Private TextBoxNames As Variant
+
+#If VBA7 Then
+    Private Declare PtrSafe Function GetDC Lib "user32" (ByVal hWnd As LongPtr) As LongPtr
+    Private Declare PtrSafe Function ReleaseDC Lib "user32" (ByVal hWnd As LongPtr, ByVal hdc As LongPtr) As Long
+    Private Declare PtrSafe Function GetDeviceCaps Lib "gdi32" (ByVal hdc As LongPtr, ByVal nIndex As Long) As Long
+    Private Declare PtrSafe Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+#Else
+    Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
+    Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hdc As Long) As Long
+    Private Declare Function GetDeviceCaps Lib "gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
+    Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+#End If
+
+Const LOGPIXELSX = 88    ' Horizontal DPI
+Const LOGPIXELSY = 90    ' Vertical DPI
+Const SM_CXSCREEN = 0    ' Screen width in pixels
+Const SM_CYSCREEN = 1    ' Screen height in pixels
+
+Public ParentForm As UserForm
+
+Private Function GetScreenWidthInPoints() As Double
+    #If VBA7 Then
+        Dim hdc As LongPtr
+        Dim dpiX As Long
+        hdc = GetDC(0)                            ' Get device context for the screen
+        dpiX = GetDeviceCaps(hdc, LOGPIXELSX)     ' Get horizontal DPI
+        ReleaseDC 0, hdc                          ' Release device context
+        Dim screenWidth As Long
+        screenWidth = GetSystemMetrics(SM_CXSCREEN)  ' Get screen width in pixels
+        GetScreenWidthInPoints = (screenWidth * 72) / dpiX  ' Convert to points
+    #Else
+        Dim hdc As Long
+        Dim dpiX As Long
+        hdc = GetDC(0)                            ' Get device context for the screen
+        dpiX = GetDeviceCaps(hdc, LOGPIXELSX)     ' Get horizontal DPI
+        ReleaseDC 0, hdc                          ' Release device context
+        Dim screenWidth As Long
+        screenWidth = GetSystemMetrics(SM_CXSCREEN)  ' Get screen width in pixels
+        GetScreenWidthInPoints = (screenWidth * 72) / dpiX  ' Convert to points
+    #End If
+End Function
+
+Private Function GetScreenHeightInPoints() As Double
+    #If VBA7 Then
+        Dim hdc As LongPtr
+        Dim dpiY As Long
+        hdc = GetDC(0)                            ' Get device context for the screen
+        dpiY = GetDeviceCaps(hdc, LOGPIXELSY)     ' Get vertical DPI
+        ReleaseDC 0, hdc                          ' Release device context
+        Dim screenHeight As Long
+        screenHeight = GetSystemMetrics(SM_CYSCREEN)  ' Get screen height in pixels
+        GetScreenHeightInPoints = (screenHeight * 72) / dpiY  ' Convert to points
+    #Else
+        Dim hdc As Long
+        Dim dpiY As Long
+        hdc = GetDC(0)                            ' Get device context for the screen
+        dpiY = GetDeviceCaps(hdc, LOGPIXELSY)     ' Get vertical DPI
+        ReleaseDC 0, hdc                          ' Release device context
+        Dim screenHeight As Long
+        screenHeight = GetSystemMetrics(SM_CYSCREEN)  ' Get screen height in pixels
+        GetScreenHeightInPoints = (screenHeight * 72) / dpiY  ' Convert to points
+    #End If
+End Function
+
+Private Sub cmdView__Click()
+   ' Open UserForm2 when the "View" button is clicked
+    Call OpenUserForm2
+End Sub
+
+
+
+
+Private Sub Labe3_Click()
+Call InitializeListBox
+    Me.txtSearch1.Text = "" ' Clear the search box
+    'Me.txtSearch.Text = "Search Sirion ID..."
+End Sub
+
+Private Sub Frame7_Click()
+
+End Sub
+
+Private Sub CheckBox1_Click()
+
+End Sub
+
+Private Sub cmdCancel_Click()
+    Dim wsData As Worksheet
+    Dim wsLogs As Worksheet
+    Dim SirionID As String
+    Dim lastRow As Long
+    Dim dataLastRow As Long
+    Dim logLastRow As Long
+    Dim i As Long
+    Dim found As Boolean
+    Dim response As VbMsgBoxResult
+    Dim currentUser As String
+    
+    ' Get the current username
+    currentUser = Environ("USERNAME")
+    
+    ' Get the Sirion ID from the textbox
+    SirionID = Me.txtSirionID.Value
+    
+    ' Set the worksheets
+    Set wsData = ThisWorkbook.Sheets("Data")
+    Set wsLogs = ThisWorkbook.Sheets("UserLogs")
+    
+    ' Validate that a Sirion ID is entered
+    If SirionID = "" Then
+        MsgBox "Please enter a Sirion ID to cancel the review.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Check if the Sirion ID exists in the "Data" sheet
+    dataLastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+    found = False
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            found = True
+            Exit For
+        End If
+    Next i
+    
+    If Not found Then
+        MsgBox "Sirion ID not found. Please enter a valid Sirion ID.", vbExclamation
+        Me.txtSirionID.SetFocus
+        Exit Sub
+    End If
+    
+    ' Check if the record is being reviewed by the current user
+    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row
+    found = False
+    For i = 2 To logLastRow
+        If wsLogs.Cells(i, 1).Value = SirionID And wsLogs.Cells(i, 2).Value = "Start Review" And wsLogs.Cells(i, 3).Value = currentUser Then
+            found = True
+            Exit For
+        End If
+    Next i
+    
+    If Not found Then
+        MsgBox "This record (Sirion ID: " & SirionID & ") is not being reviewed by you or does not have an active review. Cannot cancel.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Show a confirmation pop-up
+    response = MsgBox("You're canceling the review for Sirion ID: " & SirionID & vbCrLf & _
+        "Are you sure you want to proceed?", vbYesNo + vbQuestion, "Confirm Cancellation")
+    
+    ' Check the user's response
+    If response = vbNo Then
+        MsgBox "Cancellation aborted.", vbInformation
+        Exit Sub
+    End If
+    
+'    ' Delete the log entries for this Sirion ID and this user for "Start Review"
+'    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row
+'    For i = logLastRow To 2 Step -1
+'        If wsLogs.Cells(i, 1).Value = sirionID And wsLogs.Cells(i, 2).Value = "Start Review" And wsLogs.Cells(i, 3).Value = currentUser Then
+'            wsLogs.Rows(i).Delete
+'        End If
+'    Next i
+    
+    
+    
+  
+      ' Create and configure the progress form
+    Dim frm As New frmProgress
+    frm.Show vbModeless
+    
+    ' Pass QAForm's coordinates directly
+    frm.PositionRelativeToParent _
+        parentLeft:=Me.Left, _
+        parentTop:=Me.Top, _
+        parentWidth:=Me.Width, _
+        parentHeight:=Me.Height
+    
+    DoEvents
+
+    ' Initialize progress
+    frm.ProgressBar1.Max = 4
+    frm.ProgressBar1.Value = 0
+    frm.lblStatus.Caption = "Cancelling review..."
+    DoEvents
+
+    ' Update Data sheet
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            wsData.Cells(i, 1).Value = "Not Started"
+            Exit For
+        End If
+    Next i
+
+    ' Update progress
+    frm.ProgressBar1.Value = 1
+    frm.lblStatus.Caption = "Cancelling review..."
+    DoEvents
+
+    ' Log cancellation
+    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row + 1
+    With wsLogs
+        .Cells(logLastRow, 1).Value = SirionID
+        .Cells(logLastRow, 2).Value = "Cancel Review"
+        .Cells(logLastRow, 3).Value = currentUser
+        .Cells(logLastRow, 4).Value = Format(Now, "yyyy-mm-dd")
+        .Cells(logLastRow, 5).Value = Format(Now, "hh:mm:ss AM/PM")
+    End With
+    
+        ' Update progress
+    frm.ProgressBar1.Value = 2
+    frm.lblStatus.Caption = "Cancelling review..."
+    DoEvents
+
+    ' Clear the form
+    Me.txtSirionID.Value = ""
+    Me.txtCM.Value = ""
+    Me.CMEmail.Value = ""
+    Me.txtCreated.Value = ""
+    Me.chkFolderName.Value = False
+    Me.chkAgreementName.Value = False
+    Me.chkStatus.Value = False
+    Me.chkClient.Value = False
+    Me.chkWTWLegalEntityName.Value = False
+    Me.chkTemplateType.Value = False
+    Me.chkRequesterName.Value = False
+    Me.chkWTWDataPrivacyNoticeLink.Value = False
+    Me.chkWTWBusiness.Value = False
+    Me.chkAgreementType.Value = False
+    Me.chkContractDocumentLanguage.Value = False
+    Me.chkGCID.Value = False
+    Me.chkEffectiveDate.Value = False
+    Me.chkExpirationDate.Value = False
+    Me.chkTerminationNoticeDays.Value = False
+    Me.chkCountries.Value = False
+    Me.chkRecordCreatedBy.Value = False
+    Me.chkHierarchy.Value = False
+    
+    Me.lblColumnC.Value = ""
+    Me.lblColumnD.Value = ""
+    Me.lblColumnE.Value = ""
+    Me.lblColumnF.Value = ""
+    Me.lblColumnG.Value = ""
+    Me.lblColumnH.Value = ""
+    Me.lblColumnI.Value = ""
+    Me.lblColumnJ.Value = ""
+    Me.lblColumnK.Value = ""
+    Me.lblColumnL.Value = ""
+    Me.lblColumnM.Value = ""
+    Me.lblColumnN.Value = ""
+    Me.lblColumnO.Value = ""
+    Me.lblColumnP.Value = ""
+    Me.lblColumnQ.Value = ""
+    Me.lblColumnR.Value = ""
+    Me.lblColumnS.Value = ""
+    Me.lblColumnT.Value = ""
+    
+    'clear textboxes from comments
+    Dim txtboxno As Integer
+    For txtboxno = 1 To 18
+        Me.Controls("txtboxCmt" & txtboxno).Value = ""
+    Next txtboxno
+    
+    ' Update progress
+    frm.ProgressBar1.Value = 3
+    frm.lblStatus.Caption = "Cancelling review..."
+    DoEvents
+
+    ' Refresh ListBoxes
+    Call InitializeListBox
+    Call InitializeListBox2
+
+    ' Finalize progress
+    frm.ProgressBar1.Value = 4
+    DoEvents
+
+    ' Hide form and notify
+    Unload frm
+    MsgBox "Review canceled successfully.", vbInformation
+End Sub
+
+Private Sub cmdSubmit_Click()
+    Dim wsQAResults As Worksheet
+    Dim wsData As Worksheet
+    Dim wsLogs As Worksheet
+    Dim SirionID As String
+    Dim contractManager As String
+    Dim lastRow As Long
+    Dim i As Long
+    Dim found As Boolean
+    Dim updatedRow As Long ' To store the row number of the updated Sirion ID
+    Dim dataLastRow As Long
+    Dim response As VbMsgBoxResult ' To store the user's response to the confirmation pop-up
+    Dim currentUser As String
+    Dim reviewerName As String
+    Dim logLastRow As Long
+    
+    ' Get the current username
+    currentUser = Environ("USERNAME")
+    
+    ' Get the Sirion ID from the textbox
+    SirionID = Me.txtSirionID.Value
+    
+    ' Set the worksheets
+    Set wsQAResults = ThisWorkbook.Sheets("QA Results")
+    Set wsData = ThisWorkbook.Sheets("Data")
+    Set wsLogs = ThisWorkbook.Sheets("UserLogs")
+    
+    ' Validate that a Sirion ID is entered
+    If SirionID = "" Then
+        MsgBox "Please enter a Sirion ID.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Check if the Sirion ID exists in the "Data" sheet
+    dataLastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+    found = False
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            found = True
+            Exit For
+        End If
+    Next i
+    
+    If Not found Then
+        MsgBox "Sirion ID not found. Please enter a valid Sirion ID.", vbExclamation
+        Me.txtSirionID.SetFocus
+        Exit Sub
+    End If
+    
+    ' Check if the Sirion ID is being reviewed by the current user
+    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row
+    reviewerName = ""
+    For i = 2 To logLastRow
+        If wsLogs.Cells(i, 1).Value = SirionID And wsLogs.Cells(i, 2).Value = "Start Review" Then
+            reviewerName = wsLogs.Cells(i, 3).Value
+            Exit For
+        End If
+    Next i
+    
+    If reviewerName <> currentUser Then
+        MsgBox "This record (Sirion ID: " & SirionID & ") is being reviewed by " & reviewerName & ". You cannot submit this review.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Show a confirmation pop-up
+    response = MsgBox("You're submitting this review for the Sirion ID: " & SirionID & vbCrLf & _
+        "Are you sure you want to proceed?", vbYesNo + vbQuestion, "Confirm Submission")
+    
+    ' Check the user's response
+    If response = vbNo Then
+        MsgBox "Submission canceled.", vbInformation
+        Exit Sub
+    End If
+    
+   
+    
+    ' Check if the Sirion ID already exists in the "QA Results" sheet
+    lastRow = wsQAResults.Cells(wsQAResults.Rows.Count, 1).End(xlUp).Row
+    found = False
+    For i = 2 To lastRow
+        If wsQAResults.Cells(i, 1).Value = SirionID Then
+            MsgBox "Sirion ID " & SirionID & " already exists in the QA Results sheet.", vbExclamation
+            found = True
+            Exit For
+        End If
+    Next i
+    
+    If Not found Then
+        ' Get the Contract Manager from the Data sheet
+        contractManager = ""
+        dataLastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+        For i = 2 To dataLastRow
+            If wsData.Cells(i, 2).Value = SirionID Then
+                contractManager = wsData.Cells(i, 21).Value ' Contract Manager is in Column K (11th column)
+                Exit For
+            End If
+        Next i
+        
+        Dim frm As New frmProgress
+        frm.Show vbModeless
+        
+        ' Pass QAForm's coordinates directly
+        frm.PositionRelativeToParent _
+            parentLeft:=Me.Left, _
+            parentTop:=Me.Top, _
+            parentWidth:=Me.Width, _
+            parentHeight:=Me.Height
+        
+        DoEvents
+    
+        ' Initialize progress
+        frm.ProgressBar1.Max = 5
+        frm.ProgressBar1.Value = 0
+        frm.lblStatus.Caption = "Saving review..."
+        DoEvents
+            
+        
+        ' Add a new row if the Sirion ID doesn't exist (QA Results start at Column C)
+        lastRow = lastRow + 1
+        wsQAResults.Cells(lastRow, 1).Value = SirionID ' Sirion ID in Column A
+        wsQAResults.Cells(lastRow, 2).Value = contractManager ' Contract Manager in Column B
+        wsQAResults.Cells(lastRow, 3).Value = IIf(Me.chkFolderName.Value, "Y", "N") ' Column C
+        wsQAResults.Cells(lastRow, 4).Value = IIf(Me.chkAgreementName.Value, "Y", "N") ' Column D
+        wsQAResults.Cells(lastRow, 5).Value = IIf(Me.chkStatus.Value, "Y", "N") ' Column E
+        wsQAResults.Cells(lastRow, 6).Value = IIf(Me.chkClient.Value, "Y", "N") ' Column F
+        wsQAResults.Cells(lastRow, 7).Value = IIf(Me.chkWTWLegalEntityName.Value, "Y", "N") ' Column G
+        wsQAResults.Cells(lastRow, 8).Value = IIf(Me.chkTemplateType.Value, "Y", "N") ' Column H
+        wsQAResults.Cells(lastRow, 9).Value = IIf(Me.chkRequesterName.Value, "Y", "N") ' Column I
+        wsQAResults.Cells(lastRow, 10).Value = IIf(Me.chkWTWDataPrivacyNoticeLink.Value, "Y", "N") ' Column J
+        wsQAResults.Cells(lastRow, 11).Value = IIf(Me.chkWTWBusiness.Value, "Y", "N") ' Column K
+        wsQAResults.Cells(lastRow, 12).Value = IIf(Me.chkAgreementType.Value, "Y", "N") ' Column L
+        wsQAResults.Cells(lastRow, 13).Value = IIf(Me.chkContractDocumentLanguage.Value, "Y", "N") ' Column M
+        wsQAResults.Cells(lastRow, 14).Value = IIf(Me.chkGCID.Value, "Y", "N") ' Column N
+        wsQAResults.Cells(lastRow, 15).Value = IIf(Me.chkEffectiveDate.Value, "Y", "N") ' Column O
+        wsQAResults.Cells(lastRow, 16).Value = IIf(Me.chkExpirationDate.Value, "Y", "N") ' Column P
+        wsQAResults.Cells(lastRow, 17).Value = IIf(Me.chkTerminationNoticeDays.Value, "Y", "N") ' Column Q
+        wsQAResults.Cells(lastRow, 18).Value = IIf(Me.chkCountries.Value, "Y", "N") ' Column R
+        wsQAResults.Cells(lastRow, 19).Value = IIf(Me.chkRecordCreatedBy.Value, "Y", "N") ' Column Q
+        wsQAResults.Cells(lastRow, 20).Value = IIf(Me.chkHierarchy.Value, "Y", "N") ' Column R
+        wsQAResults.Cells(lastRow, 21).Value = IIf(Me.chkRecordCreatedBy.Value, "Y", "N") ' Column Q
+        wsQAResults.Cells(lastRow, 22).Value = IIf(Me.chkHierarchy.Value, "Y", "N") ' Column R
+        
+        wsQAResults.Cells(lastRow, 24).Value = Me.txtboxCmt1.Value
+        wsQAResults.Cells(lastRow, 25).Value = Me.txtboxCmt2.Value
+        wsQAResults.Cells(lastRow, 26).Value = Me.txtboxCmt3.Value
+        wsQAResults.Cells(lastRow, 27).Value = Me.txtboxCmt4.Value
+        wsQAResults.Cells(lastRow, 28).Value = Me.txtboxCmt5.Value
+        wsQAResults.Cells(lastRow, 29).Value = Me.txtboxCmt6.Value
+        wsQAResults.Cells(lastRow, 30).Value = Me.txtboxCmt7.Value
+        wsQAResults.Cells(lastRow, 31).Value = Me.txtboxCmt8.Value
+        wsQAResults.Cells(lastRow, 32).Value = Me.txtboxCmt9.Value
+        wsQAResults.Cells(lastRow, 33).Value = Me.txtboxCmt10.Value
+        wsQAResults.Cells(lastRow, 34).Value = Me.txtboxCmt11.Value
+        wsQAResults.Cells(lastRow, 35).Value = Me.txtboxCmt12.Value
+        wsQAResults.Cells(lastRow, 36).Value = Me.txtboxCmt13.Value
+        wsQAResults.Cells(lastRow, 37).Value = Me.txtboxCmt14.Value
+        wsQAResults.Cells(lastRow, 38).Value = Me.txtboxCmt15.Value
+        wsQAResults.Cells(lastRow, 39).Value = Me.txtboxCmt16.Value
+        wsQAResults.Cells(lastRow, 40).Value = Me.txtboxCmt17.Value
+        wsQAResults.Cells(lastRow, 41).Value = Me.txtboxCmt18.Value
+        wsQAResults.Cells(lastRow, 42).Value = Me.txtboxCmt19.Value
+        wsQAResults.Cells(lastRow, 43).Value = Me.txtboxCmt20.Value
+        updatedRow = lastRow ' Store the row number of the newly added Sirion ID
+    End If
+    
+    
+            ' Initialize progress
+        
+        frm.ProgressBar1.Value = 1
+        frm.lblStatus.Caption = "Saving review..."
+        DoEvents
+    ' Tag Column A in the "Data" sheet with "Completed" for the corresponding Sirion ID
+    dataLastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            wsData.Cells(i, 1).Value = "Completed" ' Tag Column A with "Completed"
+            Exit For
+        End If
+    Next i
+    
+        ' Initialize progress
+        
+        frm.ProgressBar1.Value = 2
+        frm.lblStatus.Caption = "Saving review..."
+        DoEvents
+        
+    ' Log the submission action in the "UserLogs" sheet
+    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row + 1
+    wsLogs.Cells(logLastRow, 1).Value = SirionID ' Sirion ID
+    wsLogs.Cells(logLastRow, 2).Value = "Submit Review" ' Task
+    wsLogs.Cells(logLastRow, 3).Value = currentUser ' User
+    wsLogs.Cells(logLastRow, 4).Value = Format(Now, "yyyy-mm-dd") ' Date
+    wsLogs.Cells(logLastRow, 5).Value = Format(Now, "hh:mm:ss AM/PM") ' Time
+    
+    
+            ' Initialize progress
+        
+        frm.ProgressBar1.Value = 3
+        frm.lblStatus.Caption = "Saving review..."
+        DoEvents
+        
+        ' Check if any checkbox is checked
+    Dim isAnyChecked As Boolean
+    isAnyChecked = False
+    
+
+    
+    If Me.chkFolderName.Value Or Me.chkAgreementName.Value Or Me.chkStatus.Value Or _
+       Me.chkClient.Value Or Me.chkWTWLegalEntityName.Value Or Me.chkTemplateType.Value Or _
+       Me.chkRequesterName.Value Or Me.chkWTWDataPrivacyNoticeLink.Value Or Me.chkWTWBusiness.Value Or _
+       Me.chkAgreementType.Value Or Me.chkContractDocumentLanguage.Value Or Me.chkGCID.Value Or _
+       Me.chkEffectiveDate.Value Or Me.chkExpirationDate.Value Or Me.chkTerminationNoticeDays.Value Or _
+       Me.chkCountries.Value Or Me.chkRecordCreatedBy.Value Or Me.chkHierarchy.Value Or Me.chkUploadedin48Hours.Value Or Me.chkDocumentUploaded.Value Then
+        isAnyChecked = True
+    End If
+    
+    If isAnyChecked Then
+            Call GenerateContractFeedbackEmail
+    End If
+
+    
+'    ' Refresh the ListBox to reflect the changes
+    Me.txtSirionID.Value = ""
+    Me.txtCM.Value = ""
+    Me.CMEmail.Value = ""
+    Me.txtCreated.Value = ""
+    Me.chkFolderName.Value = False
+    Me.chkAgreementName.Value = False
+    Me.chkStatus.Value = False
+    Me.chkClient.Value = False
+    Me.chkWTWLegalEntityName.Value = False
+    Me.chkTemplateType.Value = False
+    Me.chkRequesterName.Value = False
+    Me.chkWTWDataPrivacyNoticeLink.Value = False
+    Me.chkWTWBusiness.Value = False
+    Me.chkAgreementType.Value = False
+    Me.chkContractDocumentLanguage.Value = False
+    Me.chkGCID.Value = False
+    Me.chkEffectiveDate.Value = False
+    Me.chkExpirationDate.Value = False
+    Me.chkTerminationNoticeDays.Value = False
+    Me.chkCountries.Value = False
+    Me.chkRecordCreatedBy.Value = False
+    Me.chkHierarchy.Value = False
+    Me.chkUploadedin48Hours.Value = False
+    Me.chkDocumentUploaded.Value = False
+    
+    Me.lblColumnC.Value = "" ' Column C
+    Me.lblColumnD.Value = "" ' Column D
+    Me.lblColumnE.Value = "" ' Column E
+    Me.lblColumnF.Value = "" ' Column F
+    Me.lblColumnG.Value = "" ' Column G
+    Me.lblColumnH.Value = "" ' Column H
+    Me.lblColumnI.Value = "" ' Column I
+    Me.lblColumnJ.Value = "" ' Column J
+    Me.lblColumnK.Value = "" ' Column K
+    Me.lblColumnL.Value = "" ' Column L
+    Me.lblColumnM.Value = "" ' Column M
+    Me.lblColumnN.Value = "" ' Column N
+    Me.lblColumnO.Value = "" ' Column O
+    Me.lblColumnP.Value = "" ' Column P
+    Me.lblColumnQ.Value = "" ' Column Q
+    Me.lblColumnR.Value = "" ' Column Q
+    Me.lblColumnS.Value = "" ' Column Q
+    Me.lblColumnT.Value = "" ' Column Q
+    Me.lblColumnU.Value = "" ' Column Q
+    Me.lblColumnV.Value = "" ' Column Q
+    
+    'clear textboxes from comments
+    Dim txtboxno As Integer
+    For txtboxno = 1 To 20
+        Me.Controls("txtboxCmt" & txtboxno).Value = ""
+    Next txtboxno
+    ' Close UserForm2 if it is open
+'    Dim uf As Object
+'    For Each uf In UserForms
+'        If uf.Name = "UserForm2" Then
+'            Unload uf
+'            Exit For
+'        End If
+'    Next uf
+
+            ' Initialize progress
+        
+        frm.ProgressBar1.Value = 4
+        frm.lblStatus.Caption = "Saving review..."
+        DoEvents
+        
+    ' Clear the search box and refresh the ListBox
+    Call InitializeListBox
+    Call InitializeListBox2
+    'txtSearch1.Text = "" ' Clear the search box
+    'Me.txtSearch.Text = "Search Sirion ID..."
+    
+    frm.ProgressBar1.Value = 5
+    frm.lblStatus.Caption = "Completed"
+    DoEvents
+        ' Hide form and notify
+    Unload frm
+    
+    ' Activate the Sirion ID cell in the "QA Results" sheet
+    If Not found Then
+        wsQAResults.Activate
+        wsQAResults.Cells(updatedRow, 1).Activate ' Activate the Sirion ID cell
+        MsgBox "QA results saved successfully.", vbInformation
+            ' Only generate the email if at least one checkbox is checked
+
+    End If
+End Sub
+
+
+
+    Private Sub Label3_Click()
+    Call InitializeListBox
+        Me.txtSearch1.Text = "" ' Clear the search box
+        'Me.txtSearch.Text = "Search Sirion ID..."
+    End Sub
+
+
+
+
+
+
+Private Sub txtCreated_Change()
+
+End Sub
+
+Private Sub txtSirionID_Enter()
+    Dim SirionID As String
+    Dim url As String
+
+    ' Get the value from the txtSirionID textbox
+    SirionID = Me.txtSirionID.Value
+
+    ' Check if the Sirion ID is not empty
+    If SirionID <> "" Then
+        ' Construct the URL by appending the Sirion ID
+        url = "https://wtw.sirioncloud.com/ux/handleLink.html?savedRequest=show/tblcontracts/" & SirionID
+
+        ' Open the URL in the default web browser
+        On Error Resume Next ' Handle any potential errors (e.g., invalid URL)
+        ThisWorkbook.FollowHyperlink Address:=url
+        If Err.Number <> 0 Then
+            MsgBox "Failed to open the hyperlink. Please check the Sirion ID.", vbExclamation
+            Err.Clear
+        End If
+        On Error GoTo 0 ' Reset error handling
+    Else
+        MsgBox "Please enter a valid Sirion ID.", vbExclamation
+    End If
+End Sub
+
+Private Sub UserForm_Initialize()
+
+Dim B As Boolean
+
+    B = ShowMinimizeButton(UF:=Me, HideButton:=False)
+    B = ShowMaximizeButton(UF:=Me, HideButton:=False)
+    
+    Dim C As Boolean
+    C = MakeFormResizable(UF:=Me, Sizable:=True)
+    C = IsFormResizable(UF:=Me)
+ ' Center the progress form on the parent form
+    ' Center the progress form on the parent form
+  Dim frm As New frmProgress
+        frm.Show vbModeless
+        
+        ' Pass QAForm's coordinates directly
+        frm.PositionRelativeToParent _
+            parentLeft:=Me.Left, _
+            parentTop:=Me.Top, _
+            parentWidth:=Me.Width, _
+            parentHeight:=Me.Height
+        
+        DoEvents
+    
+        ' Initialize progress
+        frm.ProgressBar1.Max = 6
+        frm.ProgressBar1.Value = 0
+        frm.lblStatus.Caption = "Initializing form..."
+        DoEvents
+    
+
+    
+           
+    frm.ProgressBar1.Value = 1
+    frm.lblStatus.Caption = "Resizing form..."
+    DoEvents
+
+    If Me.Width <= Application.Width Then
+        ' For small screens, use specific dimensions
+        Me.Width = 1258.2
+        Me.Height = 700
+        Me.Zoom = 100
+    Else
+        ' Get screen dimensions in points
+        screenWidthPoints = GetScreenWidthInPoints()
+        screenHeightPoints = GetScreenHeightInPoints()
+    
+        ' Set form size to 80% of screen size
+        Me.Width = 0.8 * screenWidthPoints
+        Me.Height = 0.8 * screenHeightPoints
+        Me.Zoom = 100
+       Call SetScrollableArea
+    End If
+
+    frm.ProgressBar1.Value = 2
+    frm.lblStatus.Caption = "Loading primary data..."
+    DoEvents
+    
+    Me.txtSearch1.Text = "" ' Clear the search box
+    Me.lblSearchPlaceholder1.Caption = "Enter search text.."
+    Me.lblSearchPlaceholder1.Visible = True ' Ensure the label is visible initially
+    Me.lblSearchPlaceholder2.Caption = "Enter search text.."
+    Me.lblSearchPlaceholder2.Visible = True ' Ensure the label is visible initially
+    Me.lblSearchPlaceholder3.Caption = "Enter search text.."
+    Me.lblSearchPlaceholder3.Visible = True ' Ensure the label is visible initially
+    Me.txtSearch1.ForeColor = vbGray ' Set placeholder text color to gray
+    
+   ' Initialize ListBox1
+    Call InitializeListBox
+    
+    frm.ProgressBar1.Value = 3
+    frm.lblStatus.Caption = "Loading secondary data..."
+    DoEvents
+    
+    ' Initialize ListBox2
+    Call InitializeListBox2
+    
+    
+    frm.ProgressBar1.Value = 4
+    frm.lblStatus.Caption = "Arranging controls..."
+    DoEvents
+        ' Position LabelRecordCount below ListBox1
+    With Me.LabelRecordCount
+        .Left = Me.ListBox1.Left ' Align with the left edge of ListBox1
+        .Top = Me.ListBox1.Top + Me.ListBox1.Height + 5 ' Position below ListBox1 with a small margin
+        .AutoSize = True ' Automatically adjust the width to fit the text
+    End With
+        With Me.LabelRecordCount2
+        .Left = Me.ListBox2.Left ' Align with the left edge of ListBox1
+        .Top = Me.ListBox2.Top + Me.ListBox2.Height + 5 ' Position below ListBox1 with a small margin
+        .AutoSize = True ' Automatically adjust the width to fit the text
+    End With
+    
+' Determine ListBox1 position
+    Dim listBox1Bottom As Single
+    Dim listBox1Right As Single
+    
+    listBox1Bottom = ListBox1.Top + ListBox1.Height + 10 ' Add 10 pixels padding
+    listBox1Right = ListBox1.Left + ListBox1.Width - Label3.Width ' Align to right
+    
+    ' Set the position of Label3 (Refresh Data)
+    Label3.Top = listBox1Bottom
+    Label3.Left = listBox1Right
+
+    ' Define the CheckBox and TextBox names
+    checkboxNames = Array("chkFolderName", "chkAgreementName", "chkStatus", "chkClient", _
+                      "chkWTWLegalEntityName", "chkTemplateType", "chkRequesterName", "chkWTWDataPrivacyNoticeLink", _
+                      "chkWTWBusiness", "chkAgreementType", "chkContractDocumentLanguage", "chkGCID", _
+                      "chkEffectiveDate", "chkExpirationDate", "chkTerminationNoticeDays", "chkCountries", _
+                      "chkRecordCreatedBy", "chkHierarchy", "chkUploadedin48Hours", "chkDocumentUploaded")
+    
+    TextBoxNames = Array("txtboxCmt1", "txtboxCmt2", "txtboxCmt3", "txtboxCmt4", _
+                         "txtboxCmt5", "txtboxCmt6", "txtboxCmt7", "txtboxCmt8", _
+                         "txtboxCmt9", "txtboxCmt10", "txtboxCmt11", "txtboxCmt12", _
+                         "txtboxCmt13", "txtboxCmt14", "txtboxCmt15", "txtboxCmt16", "txtboxCmt17", _
+                         "txtboxCmt18", "txtboxCmt19", "txtboxCmt20")
+    ' Initialize all CheckBoxes and TextBoxes
+    Dim i As Integer
+    For i = LBound(checkboxNames) To UBound(checkboxNames)
+        With Me.Controls(checkboxNames(i))
+            .Value = False ' Uncheck all CheckBoxes
+        End With
+        
+        With Me.Controls(TextBoxNames(i))
+            .Enabled = False ' Disable all TextBoxes
+            .Visible = False
+            '.BackColor = RGB(200, 200, 200) ' Grey background
+        End With
+    Next i
+    
+   ' Format the TextBox to look like a hyperlink
+    With Me.txtSirionID
+        '.Value = "https://wtw.sirioncloud.com/ux/handleLink.html?savedRequest=show/tblcontracts/<txtSirionID>"
+        .ForeColor = RGB(0, 0, 255) ' Blue color
+        .Font.Underline = True ' Underline the text
+    End With
+    
+    Dim listBoxBottom As Single
+    Dim listBoxLeft As Single
+    
+    listBoxBottom = ListBox2.Top + ListBox2.Height + 10 ' Add 10 pixels padding
+    listBoxRight = ListBox2.Left + ListBox2.Width - cmdSubmit.Width ' Align to right
+    
+    ' Set the Submit button position
+    cmdCancel.Top = listBoxBottom
+    cmdCancel.Left = listBoxRight
+
+    frm.ProgressBar1.Value = 5
+    frm.lblStatus.Caption = "Finalizing setup..."
+    DoEvents
+    
+     ' Initialize all three ComboBoxes with the same list
+    InitializeComboBox cboColumnFilter1
+    InitializeComboBox cboColumnFilter2
+    InitializeComboBox cboColumnFilter3
+    
+    frm.ProgressBar1.Value = 6
+    frm.lblStatus.Caption = "Ready!"
+    DoEvents
+    ' Clean up
+    Unload frm
+End Sub
+
+Private Sub SetScrollableArea()
+    Dim ctrl As control
+    Dim maxWidth As Single
+    Dim maxHeight As Single
+    
+    ' Initialize maximum width and height
+    maxWidth = 0
+    maxHeight = 0
+    
+    ' Loop through all controls to find the maximum required width and height
+    For Each ctrl In Me.Controls
+        If ctrl.Left + ctrl.Width > maxWidth Then
+            maxWidth = ctrl.Left + ctrl.Width
+        End If
+        If ctrl.Top + ctrl.Height > maxHeight Then
+            maxHeight = ctrl.Top + ctrl.Height
+        End If
+    Next ctrl
+    
+    ' Add a small buffer to ensure all content is accessible
+    maxWidth = maxWidth + 20
+    maxHeight = maxHeight + 20
+    
+    ' Set the scrollable area
+    Me.ScrollWidth = maxWidth
+    Me.ScrollHeight = maxHeight
+    
+    ' Enable scrollbars only if content exceeds the form’s size
+    If maxWidth > Me.Width Or maxHeight > Me.Height Then
+        Me.ScrollBars = fmScrollBarsBoth
+        Me.Divider.Height = maxHeight
+    Else
+        Me.ScrollBars = fmScrollBarsNone
+    End If
+End Sub
+Private Sub lblSearchPlaceholder1_Click()
+    ' Shift focus to the TextBox when the label is clicked
+    Me.txtSearch1.SetFocus
+    ' Hide the label
+    Me.lblSearchPlaceholder1.Visible = False
+End Sub
+
+Private Sub lblSearchPlaceholder2_Click()
+    ' Shift focus to the TextBox when the label is clicked
+    Me.txtSearch2.SetFocus
+    ' Hide the label
+    Me.lblSearchPlaceholder2.Visible = False
+End Sub
+
+Private Sub lblSearchPlaceholder3_Click()
+    ' Shift focus to the TextBox when the label is clicked
+    Me.txtSearch3.SetFocus
+    ' Hide the label
+    Me.lblSearchPlaceholder3.Visible = False
+End Sub
+Private Sub txtSearch1_Enter()
+    ' Remove placeholder text when the TextBox is clicked
+ 
+    ' Ensure the label is hidden when the TextBox is focused
+    Me.lblSearchPlaceholder1.Visible = False
+End Sub
+
+Private Sub txtSearch2_Enter()
+    ' Remove placeholder text when the TextBox is clicked
+ 
+    ' Ensure the label is hidden when the TextBox is focused
+    Me.lblSearchPlaceholder2.Visible = False
+End Sub
+
+Private Sub txtSearch3_Enter()
+    ' Remove placeholder text when the TextBox is clicked
+ 
+    ' Ensure the label is hidden when the TextBox is focused
+    Me.lblSearchPlaceholder3.Visible = False
+End Sub
+
+Private Sub txtSearch1_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    ' Restore placeholder text if the TextBox is empty
+    If Me.txtSearch1.Text = "" Then
+    
+        Me.lblSearchPlaceholder1.Visible = True ' Show the label again
+    End If
+End Sub
+Private Sub txtSearch2_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    ' Restore placeholder text if the TextBox is empty
+    If Me.txtSearch2.Text = "" Then
+    
+        Me.lblSearchPlaceholder2.Visible = True ' Show the label again
+    End If
+End Sub
+
+Private Sub txtSearch3_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    ' Restore placeholder text if the TextBox is empty
+    If Me.txtSearch3.Text = "" Then
+    
+        Me.lblSearchPlaceholder3.Visible = True ' Show the label again
+    End If
+End Sub
+' Multi-column search with three search boxes and combo boxes
+Private Sub FilterListBox()
+    Dim searchTerm(1 To 3) As String
+    Dim selectedColumn(1 To 3) As Long
+    Dim i As Long, j As Long, k As Long
+    Dim matchFound As Boolean
+    Dim recordCount As Long
+    Dim matchesAll As Boolean
+    Dim tempArray() As Variant
+    Dim tempIndex As Long
+    Dim randomIndex As Long
+    Dim temp As Variant
+    On Error GoTo ErrorHandler
+    
+    ' Show searching indication
+    Me.LabelStatus.Caption = "Searching..."
+    Me.LabelStatus.Visible = True
+    Me.btnSearch.Enabled = False
+    DoEvents
+    
+    ' Get search terms from textboxes
+    searchTerm(1) = LCase(Trim(Me.txtSearch1.Text))
+    searchTerm(2) = LCase(Trim(Me.txtSearch2.Text))
+    searchTerm(3) = LCase(Trim(Me.txtSearch3.Text))
+    
+    ' Determine selected columns from ComboBoxes
+    selectedColumn(1) = IIf(Me.cboColumnFilter1.ListIndex <= 0, -1, Me.cboColumnFilter1.ListIndex + 1)
+    selectedColumn(2) = IIf(Me.cboColumnFilter2.ListIndex <= 0, -1, Me.cboColumnFilter2.ListIndex + 1)
+    selectedColumn(3) = IIf(Me.cboColumnFilter3.ListIndex <= 0, -1, Me.cboColumnFilter3.ListIndex + 1)
+    
+    ' Clear the ListBox
+    Me.ListBox1.Clear
+    Me.ListBox1.List = headersArray
+    
+    ' Initialize temporary array with a reasonable size
+    ReDim tempArray(0 To 2000, 1 To UBound(dataArray, 2))
+    tempIndex = 0
+    matchFound = False
+    
+    For i = 1 To UBound(dataArray, 1)
+        If dataArray(i, 1) <> "Completed" Then
+            matchesAll = True
+            
+            For j = 1 To 3
+                If selectedColumn(j) <> -1 And searchTerm(j) <> "" Then
+                    If InStr(1, LCase(dataArray(i, selectedColumn(j))), searchTerm(j)) = 0 Then
+                        matchesAll = False
+                        Exit For
+                    End If
+                End If
+            Next j
+            
+            If matchesAll Then
+                ' Store the full row
+                For j = 1 To UBound(dataArray, 2)
+                    tempArray(tempIndex, j) = dataArray(i, j)
+                Next j
+                
+                tempIndex = tempIndex + 1
+                matchFound = True
+                
+                ' Check if we need to increase the array size
+                If tempIndex >= UBound(tempArray, 1) Then
+                    ReDim Preserve tempArray(0 To UBound(tempArray, 1) + 2000, 1 To UBound(dataArray, 2))
+                End If
+            End If
+        End If
+    Next i
+    
+    ' If matches found, randomize and display them
+    If matchFound Then
+        recordCount = tempIndex
+        
+        ' Randomize the order of the temporary array (Fisher-Yates shuffle)
+        For i = tempIndex - 1 To 1 Step -1
+            ' Generate a random index between 0 and i
+            randomIndex = Int((i + 1) * Rnd)
+            
+            ' Swap rows i and randomIndex
+            For j = 1 To UBound(dataArray, 2)
+                temp = tempArray(i, j)
+                tempArray(i, j) = tempArray(randomIndex, j)
+                tempArray(randomIndex, j) = temp
+            Next j
+        Next i
+        
+        ' Now add the randomized results to the ListBox
+        For i = 0 To tempIndex - 1
+            Me.ListBox1.AddItem tempArray(i, 1)
+            For j = 2 To UBound(dataArray, 2)
+                Me.ListBox1.List(Me.ListBox1.ListCount - 1, j - 1) = tempArray(i, j)
+            Next j
+        Next i
+    Else
+        Me.ListBox1.Clear
+        Me.ListBox1.AddItem "No matches found."
+        recordCount = 0
+    End If
+    
+    Me.LabelRecordCount.Caption = "Number of Records: " & recordCount
+    Me.LabelStatus.Visible = False
+    Me.btnSearch.Enabled = True
+    Exit Sub
+    
+ErrorHandler:
+    Me.LabelStatus.Visible = False
+    Me.btnSearch.Enabled = True
+    MsgBox "An error occurred: " & Err.Description & " (Line: " & Erl & ")", vbCritical
+End Sub
+
+
+' Handle search button click
+Private Sub btnSearch_Click()
+    FilterListBox
+End Sub
+
+' Handle Enter key in TextBox
+Private Sub txtSearch_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        FilterListBox
+    End If
+End Sub
+
+Private Sub InitializeComboBox(cbo As ComboBox)
+    With cbo
+        .Clear
+        .AddItem "--Select Filter--"
+        .AddItem "Sirion ID"
+        .AddItem "Created On"
+        .AddItem "Client folder name"
+        .AddItem "Agreement Name"
+        .AddItem "Status"
+        .AddItem "Client"
+        .AddItem "WTW Legal Entity Name"
+        .AddItem "Template Type"
+        .AddItem "Requester Name"
+        .AddItem "WTW Data Privacy Notice Link"
+        .AddItem "WTW Business(s)"
+        .AddItem "Agreement Type"
+        .AddItem "Contract Document Language"
+        .AddItem "GCID"
+        .AddItem "Effective Date"
+        .AddItem "Expiration Date"
+        .AddItem "Termination Notice(Days)"
+        .AddItem "Countries"
+        .AddItem "Record Created By"
+        .AddItem "Contract Manager"
+        
+        .ListIndex = 0
+    End With
+End Sub
+
+Public Sub InitializeListBox()
+    Dim wsData As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+
+    ' Set the worksheet
+    Set wsData = ThisWorkbook.Sheets("Data")
+
+    ' Find the last row in column B (since data starts at column B)
+    lastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+
+    ' Store the headers in headersArray (include Column A - Status)
+    headersArray = wsData.Range("A1:U1").Value ' Headers now include Column A (Status)
+
+    ' Store the data in an array for faster filtering (include Column A - Status)
+    dataArray = wsData.Range("A2:U" & lastRow).Value ' Include Column A for filtering
+
+    ' Configure the ListBox to display columns (A to T = 20 columns)
+    Me.ListBox1.ColumnCount = 21 ' Increase column count to include Column A
+    Me.ListBox1.ColumnWidths = "70;50;60;100;100;70;70;70;70;70;70;70;70;70;70;70;70;70;70;70;70" ' Add width for Column A
+
+    ' Populate the ListBox with all data initially (excluding rows where column A is "Completed")
+    Call FilterListBox
+End Sub
+
+'Private Sub txtSearch_Change()
+'    ' Filter the ListBox as the user types in the search box
+'    If Me.txtSearch.Text = "Search Sirion ID..." Then
+'    Me.txtSearch.ForeColor = vbGray ' Set placeholder text color to gray
+'    Exit Sub
+'    End If
+'
+'    Call FilterListBox
+'End Sub
+
+Private Sub cmdSearch_Click()
+    ' Filter the ListBox when the search button is clicked (optional)
+    Call FilterListBox
+End Sub
+Private Sub cmdClear_Click()
+'    If Me.txtSearch1.Text = "Search Sirion ID..." Then
+'    Me.txtSearch.ForeColor = vbGray ' Set placeholder text color to gray
+'    Exit Sub
+'    End If
+    Me.txtSearch1.Text = "" ' Clear the search box
+    Me.txtSearch2.Text = "" ' Clear the search box
+    Me.txtSearch3.Text = "" ' Clear the search box
+    Me.lblSearchPlaceholder1.Visible = True
+    Me.lblSearchPlaceholder2.Visible = True
+    Me.lblSearchPlaceholder3.Visible = True
+    Me.cboColumnFilter1.ListIndex = 0
+    Me.cboColumnFilter2.ListIndex = 0
+    Me.cboColumnFilter3.ListIndex = 0
+    'Me.txtSearch.Text = "Search Sirion ID..."
+    Call InitializeListBox ' Reset the ListBox to show all data
+End Sub
+
+
+
+Private Sub ListBox2_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+    ' Open UserForm2 when a row is double-clicked
+    Call UpdateUserForm3
+    
+        If Me.ListBox2.ListIndex <> -1 Then
+        ' Populate txtSirionID with the value from the selected row (Column B)
+        Me.txtSirionID.Value = Me.ListBox2.List(Me.ListBox2.ListIndex, 1)
+
+    End If
+End Sub
+
+'Private Sub cmdView_Click()
+'    ' Open UserForm2 when the "View" button is clicked
+'    Call OpenUserForm2
+'End Sub
+
+Private Sub UpdateUserForm2()
+    Dim selectedRow As Long
+    Dim rowData As Variant
+    Dim i As Long
+    Dim isUserForm2Open As Boolean
+    
+    ' Check if a row is selected
+    If Me.ListBox1.ListIndex <> -1 Then
+        ' Get the selected row's data
+        selectedRow = Me.ListBox1.ListIndex
+        
+        ' Create an array to store the row data
+        ReDim rowData(0 To Me.ListBox1.ColumnCount - 1) As Variant
+        
+        ' Loop through each column and store the data in the array
+        For i = 1 To Me.ListBox1.ColumnCount - 1
+            rowData(i) = Me.ListBox1.List(selectedRow, i)
+        Next i
+        
+'        ' Check if UserForm2 is already open
+'        isUserForm2Open = False
+'        Dim uf As Object
+'        For Each uf In UserForms
+'            If uf.Name = "UserForm2" Then
+'                isUserForm2Open = True
+'                Exit For
+'            End If
+'        Next uf
+'
+'        ' If UserForm2 is not open, show it as modeless and position it to the right of UserForm1
+'        If Not isUserForm2Open Then
+'            UserForm2.Show vbModeless
+'            ' Position UserForm2 to the right of UserForm1
+'            UserForm2.Left = Me.Left + Me.Width
+'            UserForm2.Top = Me.Top
+'            UserForm2.Width = 450 ' Set a fixed width for UserForm2 (adjust as needed)
+'            'UserForm2.Height = Me.Height ' Match the height of UserForm1
+'        End If
+        
+        ' Pass the new data to UserForm2
+        Me.LoadData rowData
+    Else
+        MsgBox "Please select a row to view.", vbExclamation
+    End If
+End Sub
+'Private Sub ListBox1_Click()
+'    ' Check if a row is selected
+'    If Me.ListBox1.ListIndex <> -1 Then
+'        ' Populate txtSirionID with the value from the selected row (Column B)
+'        Me.txtSirionID.Value = Me.ListBox1.List(Me.ListBox1.ListIndex, 1)
+'
+'    End If
+'    'Call UpdateUserForm2
+'End Sub
+Private Sub UpdateUserForm3()
+    Dim selectedRow As Long
+    Dim rowData As Variant
+    Dim i As Long
+    Dim isUserForm2Open As Boolean
+    
+    ' Check if a row is selected
+    If Me.ListBox2.ListIndex <> -1 Then
+        ' Get the selected row's data
+        selectedRow = Me.ListBox2.ListIndex
+        
+        ' Create an array to store the row data
+        ReDim rowData(0 To Me.ListBox2.ColumnCount - 1) As Variant
+        
+        ' Loop through each column and store the data in the array
+        For i = 1 To Me.ListBox1.ColumnCount - 1
+            rowData(i) = Me.ListBox2.List(selectedRow, i)
+        Next i
+        
+        ' Check if UserForm2 is already open
+'        isUserForm2Open = False
+'        Dim uf As Object
+'        For Each uf In UserForms
+'            If uf.Name = "UserForm2" Then
+'                isUserForm2Open = True
+'                Exit For
+'            End If
+'        Next uf
+'
+'        ' If UserForm2 is not open, show it as modeless and position it to the right of UserForm1
+'        If Not isUserForm2Open Then
+'            UserForm2.Show vbModeless
+'            ' Position UserForm2 to the right of UserForm1
+'            UserForm2.Left = Me.Left + Me.Width
+'            UserForm2.Top = Me.Top
+'            UserForm2.Width = 450 ' Set a fixed width for UserForm2 (adjust as needed)
+'            'UserForm2.Height = Me.Height ' Match the height of UserForm1
+'        End If
+'
+        ' Pass the new data to UserForm2
+        Me.LoadData rowData
+    Else
+        MsgBox "Please select a row to view.", vbExclamation
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    IsOpen = False
+End Sub
+
+
+
+Private Sub cmdValidate_Click()
+    ' Validate the Sirion ID entered by the user
+Dim wsData As Worksheet
+Dim SirionID As String
+Dim foundCell As Range
+Dim searchRange As Range
+
+Set wsData = ThisWorkbook.Sheets("Data")
+SirionID = Me.txtSirionID.Value
+
+' Check if the Sirion ID is empty
+If SirionID = "" Then
+    MsgBox "Please enter a Sirion ID.", vbExclamation
+    Exit Sub
+End If
+
+' Define the range to search in column B
+Set searchRange = wsData.Range("B2:B" & wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row)
+
+' Use the Find method to search for the Sirion ID
+Set foundCell = searchRange.Find(What:=SirionID, LookIn:=xlValues, LookAt:=xlWhole, MatchCase:=False)
+
+' Display validation result
+If Not foundCell Is Nothing Then
+    MsgBox "Sirion ID validated successfully.", vbInformation
+Else
+    MsgBox "Sirion ID not found. Please enter a valid Sirion ID.", vbExclamation
+    Me.txtSirionID.SetFocus
+End If
+End Sub
+
+Private Sub cmdStartReview_Click()
+    Dim wsData As Worksheet
+    Dim wsLogs As Worksheet
+    Dim SirionID As String
+    Dim dataLastRow As Long
+    Dim i As Long
+    Dim logLastRow As Long
+    Dim reviewerName As String
+    Dim isAlreadyInReview As Boolean
+    Dim currentUser As String
+    
+    ' Get the current username
+    currentUser = Environ("USERNAME")
+    ' Create and configure the progress form
+    Dim frm As New frmProgress
+    frm.Show vbModeless
+    
+    ' Pass QAForm's coordinates directly
+    frm.PositionRelativeToParent _
+        parentLeft:=Me.Left, _
+        parentTop:=Me.Top, _
+        parentWidth:=Me.Width, _
+        parentHeight:=Me.Height
+    
+    DoEvents
+
+    ' Initialize progress
+    frm.ProgressBar1.Max = 4
+    frm.ProgressBar1.Value = 0
+    frm.lblStatus.Caption = "Initializing review..."
+    DoEvents
+
+
+    If Me.ListBox1.ListIndex = -1 Then
+        MsgBox "Please select a row to start the review.", vbExclamation
+        Exit Sub
+    End If
+    
+    'populate TextBox
+    If Me.ListBox1.ListIndex <> -1 Then
+        ' Populate txtSirionID with the value from the selected row (Column B)
+        Me.txtSirionID.Value = Me.ListBox1.List(Me.ListBox1.ListIndex, 1)
+
+    End If
+    ' Get the selected Sirion ID from the ListBox (Column B)
+    SirionID = Me.ListBox1.List(Me.ListBox1.ListIndex, 1) ' Column B contains Sirion ID
+    
+    ' Set the worksheets
+    Set wsData = ThisWorkbook.Sheets("Data")
+    Set wsLogs = ThisWorkbook.Sheets("UserLogs") ' Ensure this sheet exists
+    
+    ' Find the last row in the "Data" sheet
+    dataLastRow = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+    
+   
+    frm.ProgressBar1.Value = 1
+    frm.lblStatus.Caption = "Initializing review..."
+    
+    DoEvents
+    ' Check if the status of the selected row is already "Ongoing Review"
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            If wsData.Cells(i, 1).Value = "Ongoing Review" Then
+                ' Find the user who started the review from the "UserLogs" sheet
+                logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row
+                For j = 2 To logLastRow
+                    If wsLogs.Cells(j, 1).Value = SirionID And wsLogs.Cells(j, 2).Value = "Start Review" Then
+                        reviewerName = wsLogs.Cells(j, 3).Value
+                        Exit For
+                    End If
+                Next j
+                
+                ' Check if the current user matches the reviewer
+                If reviewerName <> currentUser Then
+                    ' Display an error message with the reviewer's name
+                    MsgBox "This record (Sirion ID: " & SirionID & ") is already being reviewed by " & reviewerName & ".", vbExclamation
+                    isAlreadyInReview = True
+                    Call InitializeListBox
+                    Exit For
+                Else
+                    ' Allow the same reviewer to proceed
+                    isAlreadyInReview = False
+                    Exit For
+                End If
+            End If
+        End If
+    Next i
+    frm.ProgressBar1.Value = 2
+    frm.lblStatus.Caption = "Initializing review..."
+    DoEvents
+    ' Exit the subroutine if the record is already in review by another user
+    If isAlreadyInReview Then Exit Sub
+    
+    ' Update the status of the corresponding row to "Ongoing Review"
+    For i = 2 To dataLastRow
+        If wsData.Cells(i, 2).Value = SirionID Then
+            wsData.Cells(i, 1).Value = "Ongoing Review" ' Update Column A (Status)
+            Exit For
+        End If
+    Next i
+    frm.ProgressBar1.Value = 3
+    frm.lblStatus.Caption = "Initializing review..."
+    DoEvents
+    ' Log the action in the "UserLogs" sheet
+    logLastRow = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row + 1
+    wsLogs.Cells(logLastRow, 1).Value = SirionID ' Sirion ID
+    wsLogs.Cells(logLastRow, 2).Value = "Start Review" ' Task
+    wsLogs.Cells(logLastRow, 3).Value = currentUser ' User
+    wsLogs.Cells(logLastRow, 4).Value = Format(Now, "yyyy-mm-dd") ' Date
+    wsLogs.Cells(logLastRow, 5).Value = Format(Now, "hh:mm:ss AM/PM") ' Time
+    
+    frm.ProgressBar1.Value = 4
+    frm.lblStatus.Caption = "Initializing review..."
+    DoEvents
+    ' Open UserForm2 with the selected row's data
+    Call UpdateUserForm2
+    
+    ' Refresh the ListBox to reflect the updated status
+    Call InitializeListBox
+    Call InitializeListBox2
+    
+        ' Clean up
+    Unload frm
+End Sub
+
+Private Sub InitializeListBox2()
+    Dim wsData As Worksheet
+    Dim wsLogs As Worksheet
+    Dim lastRowData As Long
+    Dim lastRowLogs As Long
+    Dim i As Long
+    Dim j As Long
+    Dim SirionID As String
+    Dim currentUser As String
+    Dim reviewerName As String
+    Dim matchFound As Boolean
+    Dim recordCount As Long
+    
+    ' Get the current username
+    currentUser = Environ("USERNAME")
+    
+    ' Set the worksheets
+    Set wsData = ThisWorkbook.Sheets("Data")
+    Set wsLogs = ThisWorkbook.Sheets("UserLogs")
+    
+    ' Find the last row in the "Data" sheet
+    lastRowData = wsData.Cells(wsData.Rows.Count, 2).End(xlUp).Row
+    
+    ' Find the last row in the "UserLogs" sheet
+    lastRowLogs = wsLogs.Cells(wsLogs.Rows.Count, 1).End(xlUp).Row
+    
+    ' Store the headers in headersArray (include Column A - Status)
+    headersArray = wsData.Range("A1:U1").Value ' Headers now include Column A (Status)
+    
+    ' Store the data in an array for faster filtering (include Column A - Status)
+    dataArray = wsData.Range("A2:U" & lastRowData).Value ' Include Column A for filtering
+    
+    ' Configure the ListBox to display columns (A to T = 20 columns)
+    Me.ListBox2.ColumnCount = 21 ' Increase column count to include Column A
+    Me.ListBox2.ColumnWidths = "70;50;60;100;100;70;70;70;70;70;70;70;70;70;70;70;70;70;70;70;70" ' Add width for Column A
+    
+    ' Clear the ListBox
+    Me.ListBox2.Clear
+    
+    ' Add headers to the ListBox (include Column A - Status)
+    Me.ListBox2.List = headersArray ' Add headers from the headersArray
+    
+    ' Loop through the data and add matching rows to the ListBox
+    recordCount = 0
+    For i = 1 To UBound(dataArray, 1)
+        ' Check if Column A is "Ongoing Review"
+        If dataArray(i, 1) = "Ongoing Review" Then
+            SirionID = dataArray(i, 2) ' Sirion ID is in Column B
+            
+            ' Check if the current user matches the reviewer in the "UserLogs" sheet
+            For j = 2 To lastRowLogs
+                If wsLogs.Cells(j, 1).Value = SirionID And wsLogs.Cells(j, 2).Value = "Start Review" Then
+                    reviewerName = wsLogs.Cells(j, 3).Value
+                    
+                    If reviewerName = currentUser Then
+                        ' Add the row to ListBox2
+                        Me.ListBox2.AddItem dataArray(i, 1) ' Add Column A (Status) to the ListBox
+                        
+                        ' Add the remaining columns (Columns B to T)
+                        For k = 2 To UBound(dataArray, 2)
+                            Me.ListBox2.List(Me.ListBox2.ListCount - 1, k - 1) = dataArray(i, k)
+                        Next k
+                        
+                        matchFound = True
+                        recordCount = recordCount + 1
+                        Exit For
+                    End If
+                End If
+            Next j
+        End If
+    Next i
+    
+    ' If no matches are found, display a message
+    If Not matchFound Then
+        Me.ListBox2.AddItem "No matches found."
+    End If
+    
+    ' Display the number of records in a Label or TextBox
+    Me.LabelRecordCount2.Caption = "Number of Ongoing Reviews: " & recordCount
+End Sub
+
+
+Public Sub LoadData(rowData As Variant)
+    Dim wsReference As Worksheet
+    Dim lookupValue As String
+    Dim resultValue As String
+    Dim lastRow As Long
+    Dim i As Long
+    
+    ' Set the Reference worksheet
+    Set wsReference = ThisWorkbook.Sheets("References")
+    
+    ' Populate the Labels with the row data
+    Me.txtCM.Value = rowData(20) ' Column K (Contract Manager Name)
+    Me.txtCreated.Value = rowData(2) ' Column L (Created Date)
+    Me.lblColumnC.Value = rowData(3) ' Column C
+    Me.lblColumnD.Value = rowData(4) ' Column D
+    Me.lblColumnE.Value = rowData(5) ' Column E
+    Me.lblColumnF.Value = rowData(6) ' Column F
+    Me.lblColumnG.Value = rowData(7) ' Column G
+    Me.lblColumnH.Value = rowData(8) ' Column H
+    Me.lblColumnI.Value = rowData(9) ' Column I
+    Me.lblColumnJ.Value = rowData(10) ' Column J
+    Me.lblColumnK.Value = rowData(11) ' Column K
+    Me.lblColumnL.Value = rowData(12) ' Column L
+    Me.lblColumnM.Value = rowData(13) ' Column M
+    Me.lblColumnN.Value = rowData(14) ' Column N
+    Me.lblColumnO.Value = rowData(15) ' Column O
+    Me.lblColumnP.Value = rowData(16) ' Column P
+    Me.lblColumnQ.Value = rowData(17) ' Column Q
+    Me.lblColumnR.Value = rowData(18) ' Column R
+    Me.lblColumnS.Value = rowData(19) ' Column S
+
+    ' Perform the lookup in the "Reference" sheet
+    lookupValue = rowData(20) ' Value to look up (from Column K)
+    lastRow = wsReference.Cells(wsReference.Rows.Count, 3).End(xlUp).Row ' Last row in Column C
+    resultValue = "" ' Initialize the result value
+    
+    ' Loop through Column C to find the lookup value
+    For i = 1 To lastRow
+        If wsReference.Cells(i, 3).Value = lookupValue Then
+            resultValue = wsReference.Cells(i, 4).Value ' Get the corresponding value from Column D
+            Exit For
+        End If
+    Next i
+    
+    ' Assign the result to Me.CMEmail.Value
+    Me.CMEmail.Value = resultValue
+End Sub
+
+Private Sub CheckBox_ChangeHandler(chkBox As MSForms.CheckBox)
+    ' Find the index of the CheckBox that triggered the event
+    Dim chkIndex As Integer
+    chkIndex = Application.Match(chkBox.Name, checkboxNames, 0) - 1
+    
+    ' Get the corresponding TextBox
+    Dim txtBox As MSForms.TextBox
+    Set txtBox = Me.Controls(TextBoxNames(chkIndex))
+    
+    ' Toggle the TextBox properties based on the CheckBox state
+    If chkBox.Value = True Then
+        txtBox.Enabled = True
+        txtBox.Visible = True
+        txtBox.SetFocus
+        'txtBox.BackColor = RGB(212, 208, 200) ' Grey background
+    Else
+        txtBox.Enabled = False
+        txtBox.Visible = False
+       ' txtBox.BackColor = RGB(200, 200, 200) ' Grey background
+    End If
+End Sub
+
+' Event handlers for each CheckBox
+Private Sub chkAgreementName_Change()
+    CheckBox_ChangeHandler Me.chkAgreementName
+End Sub
+
+Private Sub chkStatus_Change()
+    CheckBox_ChangeHandler Me.chkStatus
+End Sub
+
+Private Sub chkFolderName_Change()
+    CheckBox_ChangeHandler Me.chkFolderName
+End Sub
+
+' Repeat for all other CheckBoxes...
+Private Sub chkEffectiveDate_Change()
+    CheckBox_ChangeHandler Me.chkEffectiveDate
+End Sub
+
+Private Sub chkExpirationDate_Change()
+    CheckBox_ChangeHandler Me.chkExpirationDate
+End Sub
+
+Private Sub chkClient_Change()
+    CheckBox_ChangeHandler Me.chkClient
+End Sub
+
+Private Sub chkAgreementType_Change()
+    CheckBox_ChangeHandler Me.chkAgreementType
+End Sub
+
+Private Sub chkRecordCreatedBy_Change()
+    CheckBox_ChangeHandler Me.chkRecordCreatedBy
+End Sub
+
+Private Sub chkTemplateType_Change()
+    CheckBox_ChangeHandler Me.chkTemplateType
+End Sub
+
+Private Sub chkWTWLegalEntityName_Change()
+    CheckBox_ChangeHandler Me.chkWTWLegalEntityName
+End Sub
+
+Private Sub chkWTWBusiness_Change()
+    CheckBox_ChangeHandler Me.chkWTWBusiness
+End Sub
+
+Private Sub chkTerminationNoticeDays_Change()
+    CheckBox_ChangeHandler Me.chkTerminationNoticeDays
+End Sub
+
+Private Sub chkCountries_Change()
+    CheckBox_ChangeHandler Me.chkCountries
+End Sub
+
+Private Sub chkRequesterName_Change()
+    CheckBox_ChangeHandler Me.chkRequesterName
+End Sub
+
+Private Sub chkWTWDataPrivacyNoticeLink_Change()
+    CheckBox_ChangeHandler Me.chkWTWDataPrivacyNoticeLink
+End Sub
+
+Private Sub chkContractDocumentLanguage_Change()
+    CheckBox_ChangeHandler Me.chkContractDocumentLanguage
+End Sub
+
+Private Sub chkGCID_Change()
+    CheckBox_ChangeHandler Me.chkGCID
+End Sub
+
+Private Sub chkHierarchy_Change()
+    CheckBox_ChangeHandler Me.chkHierarchy
+End Sub
+
+Private Sub chkUploadedin48Hours_Change()
+    CheckBox_ChangeHandler Me.chkUploadedin48Hours
+End Sub
+
+Private Sub chkDocumentUploaded_Change()
+    CheckBox_ChangeHandler Me.chkDocumentUploaded
+End Sub
+Sub GenerateContractFeedbackEmail()
+    Dim checkboxNames As Variant, TextBoxNamesCMT As Variant, TextBoxOrignData As Variant
+    Dim i As Integer, emailBody As String, fieldName As String
+    Dim olApp As Object, olMail As Object
+    Dim currentUser As String, FullName As String, Email As String
+    Dim SirionID As String, reviewerName As String
+    Dim wsRef As Worksheet
+    Dim lastRow As Long
+    Dim iUsercnt As Long
+    
+      ' Update "Sheet1" to your actual reference sheet name
+    Set wsRef = ThisWorkbook.Worksheets("References")
+
+    ' Initialize arrays
+    checkboxNames = Array("chkFolderName", "chkAgreementName", "chkStatus", "chkClient", _
+                      "chkWTWLegalEntityName", "chkTemplateType", "chkRequesterName", "chkWTWDataPrivacyNoticeLink", _
+                      "chkWTWBusiness", "chkAgreementType", "chkContractDocumentLanguage", "chkGCID", _
+                      "chkEffectiveDate", "chkExpirationDate", "chkTerminationNoticeDays", "chkCountries", _
+                      "chkRecordCreatedBy", "chkHierarchy", "chkUploadedin48Hours", "chkDocumentUploaded")
+
+    TextBoxNamesCMT = Array("txtboxCmt1", "txtboxCmt2", "txtboxCmt3", "txtboxCmt4", _
+                         "txtboxCmt5", "txtboxCmt6", "txtboxCmt7", "txtboxCmt8", _
+                         "txtboxCmt9", "txtboxCmt10", "txtboxCmt11", "txtboxCmt12", _
+                         "txtboxCmt13", "txtboxCmt14", "txtboxCmt15", "txtboxCmt16", "txtboxCmt17", "txtboxCmt18", "txtboxCmt19", "txtboxCmt20")
+
+    TextBoxOrignData = Array("lblColumnC", "lblColumnD", "lblColumnE", "lblColumnF", _
+                         "lblColumnG", "lblColumnH", "lblColumnI", "lblColumnJ", _
+                         "lblColumnK", "lblColumnL", "lblColumnM", "lblColumnN", _
+                         "lblColumnO", "lblColumnP", "lblColumnQ", "lblColumnR", "lblColumnS", "lblColumnT", "lblColumnU", "lblColumnV")
+
+  ' Find the last row in column E (Username column)
+    lastRow = wsRef.Cells(wsRef.Rows.Count, "E").End(xlUp).Row
+    ' Get current user's username
+    currentUser = Environ("USERNAME")
+    
+    ' Initialize fullName and email
+    FullName = ""
+    Email = Me.CMEmail.Value
+    
+    ' Look for matching username
+    For iUsercnt = 2 To lastRow  ' Assuming row 1 is header
+        If LCase(wsRef.Cells(iUsercnt, "E").Value) = LCase(currentUser) Then
+            FullName = wsRef.Cells(iUsercnt, "C").Value
+            If Email = "" Then
+                Email = wsRef.Cells(iUsercnt, "D").Value
+            End If
+            Exit For
+        End If
+    Next iUsercnt
+    
+    ' Get Sirion ID and reviewer name
+    SirionID = Me.txtSirionID
+    reviewerName = FullName
+    
+    ' Construct email body
+    emailBody = "<div style='font-family: Arial, sans-serif;'>"
+    emailBody = emailBody & "Hello,<br><br>"
+    emailBody = emailBody & "Your recent contract upload has been quality checked. Kindly revert to the CO number mentioned below and make the necessary changes. Please see the table below for more details.<br><br>"
+    emailBody = emailBody & "<table border='1' style='border-collapse:collapse; width: 100%; text-align: left;'>"
+    emailBody = emailBody & "<tr style='background-color: #f2f2f2;'><th style='padding: 10px;'>Field</th><th style='padding: 10px;'>Original Data</th><th style='padding: 10px;'>Correction</th></tr>"
+    For i = LBound(checkboxNames) To UBound(checkboxNames)
+        If Me.Controls(checkboxNames(i)).Value = True Then
+            fieldName = Replace(checkboxNames(i), "chk", "")
+            emailBody = emailBody & "<tr>"
+            emailBody = emailBody & "<td style='padding: 10px;'>" & fieldName & "</td>"
+            emailBody = emailBody & "<td style='padding: 10px;'>" & Me.Controls(TextBoxOrignData(i)).Text & "</td>"
+            emailBody = emailBody & "<td style='padding: 10px;'>" & Me.Controls(TextBoxNamesCMT(i)).Text & "</td>"
+            emailBody = emailBody & "</tr>"
+        End If
+    Next i
+    emailBody = emailBody & "</table><br><br>"
+    emailBody = emailBody & "<b>QA Reviewer:</b> " & reviewerName
+    emailBody = emailBody & "<br><br><b>CO#:</b> " & "<a href='https://wtw.sirioncloud.com/ux/handleLink.html?savedRequest=show/tblcontracts/" & SirionID & "'>" & SirionID & "</a>"
+    ' SharePoint Excel link (Force Open in Desktop App)
+   emailBody = emailBody & "<br><br><b>To close this feedback, please click this </b> <a href='ms-excel:ofe|u|https://wtwonline.sharepoint.com/:x:/r/sites/corp-nacontractingcoe-prj-na/Shared%20Documents/General/COE%20development/Contract%20uploads%20for%20QA/Contract%20Tracker%20QA_v1.xlsm?d=wa8b23e8194804e8d8f7f3b79db672809&csf=1&web=1&e=Yx5O1e'>link</a> <b> to open the file and select ''QA Feedback''.</b>"
+    emailBody = emailBody & "<br><br>Thank you,<br>CoE QA TEAM"
+    emailBody = emailBody & "</div>" ' Close the div tag
+    
+    ' Create Outlook email
+    Set olApp = CreateObject("Outlook.Application")
+    Set olMail = olApp.CreateItem(0)
+
+    With olMail
+        .To = Email
+        '.SentOnBehalfOfName = "CoEContractsQA@wtwco.com"
+        .Subject = "Quality Feedback - Contract Upload - CO# " & SirionID
+        .HTMLBody = emailBody
+        .Display
+        '.Send ' Change to .Send to send directly
+    End With
+
+    ' Clean up
+    Set olMail = Nothing
+    Set olApp = Nothing
+    Set objSysInfo = Nothing
+    Set objUser = Nothing
+
+
+End Sub
+

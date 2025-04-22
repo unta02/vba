@@ -1,0 +1,625 @@
+Option Explicit
+
+' Form initialization
+Private Sub Userform_Initialize()
+    ' Populate Year dropdown with current and previous year
+    Dim currentYear As Integer
+    currentYear = Year(Date)
+    
+    cboYear.AddItem CStr(currentYear)
+    cboYear.AddItem CStr(currentYear - 1)
+    cboYear.ListIndex = 0  ' Default to current year
+    
+    ' Populate Contract Type dropdown
+    cboContract.AddItem "COMET Repository Uploads"
+    cboContract.AddItem "Contracts"
+    cboContract.ListIndex = -1  ' Default to first option
+    
+    ' Auto-populate initials from current Outlook account
+    txtInitials.Text = GetCurrentUserInitials()
+End Sub
+
+' Extract client name from selected email
+Private Sub cmdExtract_Click()
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim explorer As Object
+    Dim selection As Object
+    Dim objMail As Object
+    
+    ' Create Outlook Application instance if not already running
+    On Error Resume Next
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get active explorer
+    Set explorer = outlookApp.ActiveExplorer
+    If explorer Is Nothing Then
+        MsgBox "Please open Outlook and select an email.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Check if an email is selected
+    Set selection = explorer.selection
+    If selection.Count = 0 Then
+        MsgBox "Please select an email first.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Get the selected email
+    Set objMail = selection.Item(1)
+    If objMail.Class <> 43 Then ' 43 = olMail
+        MsgBox "The selected item is not an email.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Get HTML content of the email
+    Dim htmlContent As String
+    htmlContent = objMail.HTMLBody
+    
+    'Clear the folder path First
+    txtOutput.Text = ""
+    
+    ' Extract client name from email
+    txtClient.Text = ExtractClientName(htmlContent)
+    
+    ' Extract LM or CDR number
+    Dim extractedNumber As String
+    extractedNumber = ExtractMatterNumber(htmlContent)
+    
+    ' Validate extraction success
+    If extractedNumber = "" Then
+        MsgBox "Could not extract LM number from the email. " & _
+               "Please verify this is a Legal Matter email or enter the LM number manually.", vbExclamation
+    End If
+    
+    ' Populate the field even if empty (user might want to enter manually)
+    txtMatterNumber.Text = extractedNumber
+    
+    ' Clean up
+    Set objMail = Nothing
+    Set selection = Nothing
+    Set explorer = Nothing
+    Set outlookApp = Nothing
+End Sub
+
+' Create folder and move email
+Private Sub cmdCreateFolder_Click()
+    ' Validate inputs
+    If cboYear.Text = "" Then
+        MsgBox "Please select a year.", vbExclamation
+        Exit Sub
+    End If
+    
+    If cboContract.Text = "" Then
+        MsgBox "Please select a contract type.", vbExclamation
+        Exit Sub
+    End If
+    
+    If txtClient.Text = "" Then
+        MsgBox "Please extract or enter a client name.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Validate LM number
+    If txtMatterNumber.Text = "" Then
+        MsgBox "Please enter an LM or CDR number.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Get client name and first letter for alphabetical subfolder
+    Dim clientName As String
+    Dim firstLetter As String
+    Dim matterNumber As String
+    
+    clientName = Trim(txtClient.Text)
+    
+    ' Check if client name starts with "The " and handle accordingly
+    If Left(UCase(clientName), 4) = "THE " Then
+        firstLetter = "The"
+    Else
+        ' Standard first letter extraction
+        firstLetter = UCase(Left(clientName, 1))
+        
+        ' Check if the first character is not a letter (A-Z)
+        ' If it's a number or special character, use "#" as the folder
+        If Not (firstLetter >= "A" And firstLetter <= "Z") Then
+            firstLetter = "#"
+        End If
+    End If
+    
+    matterNumber = Trim(txtMatterNumber.Text)
+    
+    ' Build the matter folder name format: "LM12345 - Client Name - (Initials)" or similar
+    Dim matterFolderName As String
+    matterFolderName = matterNumber
+    
+    ' Add client name
+    matterFolderName = matterFolderName & " - " & clientName
+    
+    ' Add initials if available
+    If Trim(txtInitials.Text) <> "" Then
+        matterFolderName = matterFolderName & " - (" & txtInitials.Text & ")"
+    End If
+    
+    ' Display validation dialog with folder structure details
+    Dim promptMessage As String
+    promptMessage = "Please confirm folder creation with these details:" & vbCrLf & vbCrLf & _
+                    "Year: " & cboYear.Text & vbCrLf & _
+                    "Contract Type: " & cboContract.Text & vbCrLf & _
+                    "Alphabetical Folder: " & firstLetter & vbCrLf & _
+                    "Client Name: " & clientName & vbCrLf & _
+                    "Matter Number: " & matterNumber & vbCrLf & _
+                    "Initials: " & txtInitials.Text & vbCrLf & vbCrLf & _
+                    "Full Folder Path: " & vbCrLf & _
+                    cboYear.Text & " > " & cboContract.Text & " > " & firstLetter & " > " & clientName & " > " & matterFolderName
+    
+    Dim userResponse As VbMsgBoxResult
+    userResponse = MsgBox(promptMessage, vbQuestion + vbOKCancel, "Confirm Folder Creation")
+    
+    ' Only proceed if user confirms
+    If userResponse = vbOK Then
+        ' Create/navigate folder structure and move email
+        CreateMatterFolderAndMoveEmail cboYear.Text, cboContract.Text, firstLetter, clientName, matterFolderName
+    End If
+End Sub
+
+' Function to create client folder and move selected email in personal account
+Public Sub CreateMatterFolderAndMoveEmail(ByVal yearFolder As String, ByVal contractType As String, _
+                                         ByVal alphaFolder As String, ByVal clientName As String, _
+                                         ByVal matterFolderName As String)
+    On Error Resume Next
+    
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim namespace As Object
+    Dim rootFolder As Object
+    Dim yearFolderObj As Object
+    Dim contractFolderObj As Object
+    Dim alphaFolderObj As Object
+    Dim clientFolderObj As Object
+    Dim matterFolderObj As Object
+    Dim selection As Object
+    Dim objMail As Object
+    
+    ' Create Outlook Application instance if not already running
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get the MAPI namespace
+    Set namespace = outlookApp.GetNamespace("MAPI")
+    
+    ' Get the personal inbox folder
+    Set rootFolder = namespace.GetDefaultFolder(6) ' 6 = olFolderInbox
+    
+    ' Navigate/create year folder
+    Dim found As Boolean
+    found = False
+    For Each yearFolderObj In rootFolder.Folders
+        If yearFolderObj.Name = yearFolder Then
+            found = True
+            Exit For
+        End If
+    Next yearFolderObj
+    
+    If Not found Then
+        Set yearFolderObj = rootFolder.Folders.Add(yearFolder)
+        If Err.Number <> 0 Then
+            MsgBox "Error creating year folder: " & Err.Description, vbCritical
+            Exit Sub
+        End If
+    End If
+    
+    ' Navigate/create contract type folder
+    found = False
+    For Each contractFolderObj In yearFolderObj.Folders
+        If contractFolderObj.Name = contractType Then
+            found = True
+            Exit For
+        End If
+    Next contractFolderObj
+    
+    If Not found Then
+        Set contractFolderObj = yearFolderObj.Folders.Add(contractType)
+        If Err.Number <> 0 Then
+            MsgBox "Error creating contract type folder: " & Err.Description, vbCritical
+            Exit Sub
+        End If
+    End If
+    
+    ' Navigate/create alpha folder
+    found = False
+    For Each alphaFolderObj In contractFolderObj.Folders
+        If alphaFolderObj.Name = alphaFolder Then
+            found = True
+            Exit For
+        End If
+    Next alphaFolderObj
+    
+    If Not found Then
+        Set alphaFolderObj = contractFolderObj.Folders.Add(alphaFolder)
+        If Err.Number <> 0 Then
+            MsgBox "Error creating alphabetical folder: " & Err.Description, vbCritical
+            Exit Sub
+        End If
+    End If
+    
+    ' Check if client folder already exists
+    found = False
+    For Each clientFolderObj In alphaFolderObj.Folders
+        If clientFolderObj.Name = clientName Then
+            found = True
+            Exit For
+        End If
+    Next clientFolderObj
+    
+    If Not found Then
+        Set clientFolderObj = alphaFolderObj.Folders.Add(clientName)
+        If Err.Number <> 0 Then
+            MsgBox "Error creating client folder: " & Err.Description, vbCritical
+            Exit Sub
+        End If
+    End If
+    
+    ' Check if matter folder already exists
+    found = False
+    For Each matterFolderObj In clientFolderObj.Folders
+        If matterFolderObj.Name = matterFolderName Then
+            found = True
+            Exit For
+        End If
+    Next matterFolderObj
+    
+    If Not found Then
+        Set matterFolderObj = clientFolderObj.Folders.Add(matterFolderName)
+        If Err.Number <> 0 Then
+            MsgBox "Error creating matter folder: " & Err.Description, vbCritical
+            Exit Sub
+        End If
+    End If
+    
+    ' Get selected email and move it to the matter folder
+    Set selection = outlookApp.ActiveExplorer.selection
+    If selection.Count > 0 Then
+        Set objMail = selection.Item(1)
+        If objMail.Class = 43 Then ' 43 = olMail
+            objMail.Move matterFolderObj
+            If Err.Number = 0 Then
+                ' Display folder path in txtOutput textbox
+                Dim folderPath As String
+                folderPath = "+ " & yearFolder & vbCrLf & _
+                              "  |--+ " & contractType & vbCrLf & _
+                              "     |--+ " & alphaFolder & vbCrLf & _
+                              "        |--+ " & clientName & vbCrLf & _
+                              "           |--+ " & matterFolderName
+                
+                ' Display the path in the textbox
+                txtOutput.Text = folderPath
+                
+                ' Show a simpler success message
+                MsgBox "Email successfully moved to folder!", vbInformation, "Success"
+            Else
+                MsgBox "Error moving email: " & Err.Description, vbCritical
+            End If
+        Else
+            MsgBox "The selected item is not an email.", vbExclamation
+        End If
+    Else
+        MsgBox "No email selected to move.", vbExclamation
+    End If
+    
+    ' Clean up
+    Set objMail = Nothing
+    Set selection = Nothing
+    Set matterFolderObj = Nothing
+    Set clientFolderObj = Nothing
+    Set alphaFolderObj = Nothing
+    Set contractFolderObj = Nothing
+    Set yearFolderObj = Nothing
+    Set rootFolder = Nothing
+    Set namespace = Nothing
+    Set outlookApp = Nothing
+End Sub
+
+' Function to extract client name from email HTML content
+Function ExtractClientName(htmlContent As String) As String
+    Dim startPattern As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim clientName As String
+    
+    ' Primary pattern to look for client name
+    startPattern = "<td><b>Client or Supplier Name (full legal entity name if known)</b></td>" & vbCrLf & "<td>"
+    startPos = InStr(htmlContent, startPattern)
+    
+    If startPos > 0 Then
+        ' Move to start of client name
+        startPos = startPos + Len(startPattern)
+        
+        ' Find end of client name (end of TD tag)
+        endPos = InStr(startPos, htmlContent, "</td>")
+        If endPos > 0 Then
+            clientName = Mid(htmlContent, startPos, endPos - startPos)
+        End If
+    End If
+    
+    ' If primary pattern not found, try alternative patterns
+    If clientName = "" Then
+        ' Alternative pattern 1
+        startPattern = "Client or Supplier Name"
+        startPos = InStr(htmlContent, startPattern)
+        If startPos > 0 Then
+            ' Find the next TD tag
+            startPos = InStr(startPos, htmlContent, "<td>")
+            If startPos > 0 Then
+                startPos = startPos + 4 ' Length of "<td>"
+                endPos = InStr(startPos, htmlContent, "</td>")
+                If endPos > 0 Then
+                    clientName = Mid(htmlContent, startPos, endPos - startPos)
+                End If
+            End If
+        End If
+    End If
+    
+    ' If still not found, try another pattern
+    If clientName = "" Then
+        startPattern = "Client:"
+        startPos = InStr(htmlContent, startPattern)
+        If startPos > 0 Then
+            startPos = startPos + Len(startPattern)
+            ' Find the end (either HTML tag or line break)
+            Dim endTag As Long
+            Dim endBreak As Long
+            
+            endTag = InStr(startPos, htmlContent, "<")
+            endBreak = InStr(startPos, htmlContent, vbCrLf)
+            
+            If endTag > 0 And (endBreak = 0 Or endTag < endBreak) Then
+                endPos = endTag
+            ElseIf endBreak > 0 Then
+                endPos = endBreak
+            Else
+                endPos = startPos + 100 ' Limit to reasonable length if no end found
+            End If
+            
+            If endPos > startPos Then
+                clientName = Mid(htmlContent, startPos, endPos - startPos)
+            End If
+        End If
+    End If
+    
+    ' Clean up the extracted name
+    clientName = Trim(clientName)
+    clientName = Replace(clientName, "&nbsp;", " ")
+    clientName = Replace(clientName, "<br>", " ")
+    
+    ' Handle any HTML encodings that might be present
+    clientName = Replace(clientName, "&amp;", "&")
+    clientName = Replace(clientName, "&lt;", "<")
+    clientName = Replace(clientName, "&gt;", ">")
+    
+    ExtractClientName = clientName
+End Function
+
+' Function to extract LM or CDR number from email HTML content
+Function ExtractMatterNumber(htmlContent As String) As String
+    ' Just use the LM number extraction since CDR is not in the email
+    ExtractMatterNumber = ExtractLMNumber(htmlContent)
+End Function
+
+' Function to extract LM number from email HTML content
+Private Function ExtractLMNumber(htmlContent As String) As String
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim lmNumber As String
+    
+    startPos = InStr(htmlContent, "Received - Legal Matter")
+    If startPos > 0 Then
+        ' Move to the end of "Received - Legal Matter"
+        startPos = startPos + Len("Received - Legal Matter")
+        
+        ' Look for the end of the LM number (usually before a </strong> tag)
+        endPos = InStr(startPos, htmlContent, "</strong>")
+        If endPos > 0 Then
+            lmNumber = Trim(Mid(htmlContent, startPos, endPos - startPos))
+        End If
+    End If
+    
+    ' If not found with the primary method, try alternate methods
+    If lmNumber = "" Then
+        ' Try to find "Legal Matter #" pattern
+        startPos = InStr(htmlContent, "Legal Matter #")
+        If startPos > 0 Then
+            startPos = startPos + Len("Legal Matter #")
+            endPos = InStr(startPos, htmlContent, "<")
+            If endPos = 0 Then
+                endPos = InStr(startPos, htmlContent, vbCrLf)
+            End If
+            
+            If endPos > 0 Then
+                lmNumber = Trim(Mid(htmlContent, startPos, endPos - startPos))
+            End If
+        End If
+    End If
+    
+    ' If still not found, try to extract just the LM pattern
+    If lmNumber = "" Then
+        startPos = InStr(htmlContent, "LM")
+        If startPos > 0 Then
+            Dim tempLM As String
+            tempLM = Mid(htmlContent, startPos, 12)
+            
+            Dim regEx As Object
+            Set regEx = CreateObject("VBScript.RegExp")
+            
+            With regEx
+                .Global = False
+                .MultiLine = True
+                .IgnoreCase = False
+                .Pattern = "LM\d+"
+            End With
+            
+            If regEx.Test(tempLM) Then
+                Dim matches As Object
+                Set matches = regEx.Execute(tempLM)
+                lmNumber = matches(0)
+            End If
+        End If
+    End If
+    
+    ' Clean up
+    lmNumber = Trim(lmNumber)
+    
+    ExtractLMNumber = lmNumber
+End Function
+
+' Get current Outlook user's initials
+Function GetCurrentUserInitials() As String
+    On Error Resume Next
+    
+    Dim outlookApp As Object
+    Dim outlookNamespace As Object
+    Dim currentUser As Object
+    Dim userName As String
+    Dim initials As String
+    
+    ' Create Outlook Application instance if not already running
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get the MAPI namespace and current user
+    Set outlookNamespace = outlookApp.GetNamespace("MAPI")
+    Set currentUser = outlookNamespace.currentUser
+    
+    ' Get the display name of the current user
+    userName = currentUser.Name
+    
+    ' Generate initials from the name
+    initials = GenerateInitialsFromName(userName)
+    
+    ' Clean up
+    Set currentUser = Nothing
+    Set outlookNamespace = Nothing
+    Set outlookApp = Nothing
+    
+    GetCurrentUserInitials = initials
+End Function
+
+' Generate initials from a full name
+Function GenerateInitialsFromName(fullName As String) As String
+    Dim nameParts As Variant
+    Dim firstNameParts As Variant
+    Dim initial As String
+    Dim i As Integer
+    Dim firstName As String
+    Dim lastName As String
+    
+    ' Remove any extra spaces
+    fullName = Trim(fullName)
+    
+    ' First remove any parenthetical information like "(Manila)" or "(Taguig City 1634)"
+    Dim parenStart As Integer
+    parenStart = InStr(fullName, "(")
+    If parenStart > 0 Then
+        fullName = Left(fullName, parenStart - 1)
+    End If
+    
+    ' Trim again after removing parentheses
+    fullName = Trim(fullName)
+    
+    ' Check if name is in "Last, First" format
+    If InStr(fullName, ",") > 0 Then
+        ' Split by comma for "Last, First" format
+        nameParts = Split(fullName, ",")
+        
+        ' Get last name (before the comma)
+        lastName = Trim(nameParts(0))
+        
+        ' Get first name (after the comma)
+        If UBound(nameParts) >= 1 Then
+            firstName = Trim(nameParts(1))
+            
+            ' Handle multiple first names (e.g., "Loise Dyan")
+            firstNameParts = Split(firstName, " ")
+            ' Just take the very first name for the initial
+            If UBound(firstNameParts) >= 0 Then
+                firstName = Trim(firstNameParts(0))
+            End If
+        End If
+        
+        ' Create initials in the order First Name + Last Name
+        initial = ""
+        If Len(firstName) > 0 Then
+            initial = UCase(Left(firstName, 1))
+        End If
+        If Len(lastName) > 0 Then
+            initial = initial & UCase(Left(lastName, 1))
+        End If
+    Else
+        ' Regular "First Last" format
+        nameParts = Split(fullName, " ")
+        
+        ' Generate initials (take first letter of each name part)
+        initial = ""
+        For i = 0 To UBound(nameParts)
+            If Len(Trim(nameParts(i))) > 0 Then
+                initial = initial & UCase(Left(Trim(nameParts(i)), 1))
+            End If
+        Next i
+        
+        ' If we got more than 3 initials, just use the first and last
+        If Len(initial) > 3 Then
+            initial = Left(initial, 1) & Right(initial, 1)
+        End If
+    End If
+    
+    ' For debugging - display the name parsing parts
+    'MsgBox "Full name: " & fullName & vbCrLf & _
+    '      "Last name: " & lastName & vbCrLf & _
+    '      "First name: " & firstName & vbCrLf & _
+    '      "Initials: " & initial, vbInformation, "Name Parsing"
+    
+    GenerateInitialsFromName = initial
+End Function
+
+' Test function to verify initials generation
+Sub TestInitialsGeneration()
+    Dim testCases As Variant
+    Dim results As String
+    Dim i As Integer
+    Dim testName As String
+    
+    ' Define test cases
+    testCases = Array( _
+        "Tayag, Marvin (Manila)", _
+        "Sagayo, Loise Dyan (Taguig City 1634)", _
+        "Smith, John Robert (New York)", _
+        "Johnson, Mary-Ann (Chicago)", _
+        "O'Malley, Sean Patrick (Boston)", _
+        "de la Cruz, Juan (Manila)", _
+        "John Smith", _
+        "Mary Elizabeth Johnson" _
+    )
+    
+    ' Process each test case
+    results = "Initials Test Results:" & vbCrLf & vbCrLf
+    
+    For i = 0 To UBound(testCases)
+        testName = CStr(testCases(i))
+        results = results & testName & " => " & _
+                 GenerateInitialsFromName(testName) & vbCrLf
+    Next i
+    
+    ' Show results
+    MsgBox results, vbInformation, "Initials Generation Test"
+End Sub
+
+Private Sub UserForm_Click()
+
+End Sub

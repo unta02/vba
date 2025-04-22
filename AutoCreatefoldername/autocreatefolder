@@ -1,0 +1,124 @@
+Option Explicit
+
+' Function to create a folder in Outlook (either in personal inbox or shared mailbox)
+Public Sub CreateOutlookFolder(ByVal folderName As String, Optional ByVal sharedMailbox As String = "")
+    On Error Resume Next
+    
+    ' Reference to Outlook
+    Dim outlookApp As Object
+    Dim namespace As Object
+    Dim targetFolder As Object
+    Dim newFolder As Object
+    Dim store As Object
+    
+    ' Create Outlook Application instance if not already running
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get the MAPI namespace
+    Set namespace = outlookApp.GetNamespace("MAPI")
+    
+    ' Determine target folder based on whether a shared mailbox is specified
+    If sharedMailbox = "" Then
+        ' Use personal inbox
+        Set targetFolder = namespace.GetDefaultFolder(6) ' 6 = olFolderInbox
+    Else
+        ' Use shared mailbox - new method using display name
+        On Error Resume Next
+        
+        ' Loop through stores to find the shared mailbox
+        For Each store In namespace.Stores
+            If store.DisplayName = sharedMailbox Then
+                Set targetFolder = store.GetDefaultFolder(6) ' 6 = olFolderInbox
+                Exit For
+            End If
+        Next store
+        
+        If targetFolder Is Nothing Then
+            MsgBox "Could not access the shared mailbox: " & sharedMailbox & vbCrLf & _
+                  "Please ensure you have the correct permissions.", vbCritical
+            Exit Sub
+        End If
+        On Error GoTo 0
+    End If
+    
+    ' Check if folder already exists
+    Dim existingFolder As Object
+    Set existingFolder = Nothing
+    
+    For Each existingFolder In targetFolder.Folders
+        If existingFolder.Name = folderName Then
+            MsgBox "Folder '" & folderName & "' already exists!", vbInformation
+            Exit Sub
+        End If
+    Next existingFolder
+    
+    ' Create the new folder
+    Set newFolder = targetFolder.Folders.Add(folderName)
+    
+    If Err.Number = 0 Then
+        MsgBox "Folder '" & folderName & "' created successfully!", vbInformation
+    Else
+        MsgBox "Error creating folder: " & Err.Description, vbCritical
+    End If
+    
+    ' Clean up
+    Set newFolder = Nothing
+    Set targetFolder = Nothing
+    Set store = Nothing
+    Set namespace = Nothing
+    Set outlookApp = Nothing
+End Sub
+
+' Example usage function for personal inbox
+Public Sub CreateCustomFolder()
+    Dim folderName As String
+    folderName = InputBox("Enter folder name:", "Create Outlook Folder")
+    If folderName <> "" Then
+        CreateOutlookFolder folderName
+    End If
+End Sub
+
+' Example usage function for Contracting COE shared mailbox
+Public Sub CreateContractingCOEFolder()
+    Dim folderName As String
+    folderName = InputBox("Enter folder name:", "Create Folder in Contracting COE")
+    If folderName <> "" Then
+        CreateOutlookFolder folderName, "Contracting COE"  ' Using exact display name from the list
+    End If
+End Sub
+
+' Function to list all available mailboxes (for debugging)
+Public Sub ListAvailableMailboxes()
+    On Error Resume Next
+    
+    Dim outlookApp As Object
+    Dim namespace As Object
+    Dim store As Object
+    Dim msg As String
+    
+    ' Create Outlook Application instance if not already running
+    Set outlookApp = GetObject(, "Outlook.Application")
+    If outlookApp Is Nothing Then
+        Set outlookApp = CreateObject("Outlook.Application")
+    End If
+    
+    ' Get the MAPI namespace
+    Set namespace = outlookApp.GetNamespace("MAPI")
+    
+    msg = "Available Mailboxes:" & vbCrLf & vbCrLf
+    
+    ' Loop through all stores
+    For Each store In namespace.Stores
+        msg = msg & store.DisplayName & vbCrLf
+    Next store
+    
+    MsgBox msg, vbInformation
+    
+    ' Clean up
+    Set store = Nothing
+    Set namespace = Nothing
+    Set outlookApp = Nothing
+End Sub

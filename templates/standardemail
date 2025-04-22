@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 20px;
+        }
+        p {
+            margin: 10px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+            background-color: #D9E2F3;
+        }
+        td {
+            padding: 8px;
+            vertical-align: top;
+        }
+        ul {
+            margin: 5px 0 5px 20px;
+            padding-left: 15px;
+        }
+        li {
+            margin-bottom: 5px;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 11pt;
+        }
+        .note {
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <p>Hello <<Requested For: Name>>,</p>
+    
+    <p>Thank you for submitting your Contract Support Request. <b><<Contract Manager Full Name>></b> will be your Contract Specialist for this request.</p>
+    
+    <p>Your contract review is currently with your project manager who is completing a high-level review, prior to us sending it out to the necessary reviewers.</p>
+    
+    <p><b><<Contract Manager Short Name>></b> will be keeping you updated on the status as we move through the review process. If you have any questions, please contact the Contract Specialist for this request.</p>
+    
+    <p>We acknowledge the urgency of the matter. However, please be advised that, given the current workload, it may not be feasible to accommodate the requested deadline. Kindly ensure that client expectations are managed correctly. However, if there is a business reason for the urgency, please provide and we will do our best to meet the requested deadline.</p>
+    
+    <p><b>Please provide</b> any applications that are in scope for this project, if not already provided in the intake form. If an ICS review is needed, this is required due to how ICS assigns out. Their SLA will not start until the applications are provided to their team.</p>
+    
+    <p><b>Your assigned legal contact</b> at this point in time is <<Assigned RCL txtRCL>>.</p>
+    
+    <p>As a reminder, please make sure to include your project manager in <b>any and all internal</b> communications with pertinent stakeholders regarding this contract request. This will ensure that the project manager is able to provide the proper level of support and keep your reviews moving forward.</p>
+    
+    <p>Thank you,<br>
+    Sales Operation | Contract and Proposal Centre of Excellence<br>
+    Contracting Management</p>
+    
+    <table>
+        <tr>
+            <td>
+                <p><b><u>Process Steps</u></b></p>
+                <p class="note">*Estimated time from receiving this email to receiving the 1<sup>st</sup> redline draft to be sent to the client will vary depending on complexity of the contract and the number of SMEs involved. If only legal review is required, then the process time will be approximately 5 to 10 business days or less depending on the nature of the request. If other SME reviews are required, the process time can take up to 15 business days or more in some extreme cases.</p>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <ul>
+                    <li class="note">PM to do a high-level review</li>
+                    <li class="note">PM to send and manage identified SMEs reviews (ICS, Privacy, HR, Insurance...etc.)</li>
+                    <li class="note">SME reviews completed – Sent to Legal for full Legal Review</li>
+                    <li class="note">PM to consolidate and clean up document/s</li>
+                    <li class="note">If needed - Requestor and necessary members of the team to meet internally to discuss redlines</li>
+                    <li class="note">Requestor to send to client for review</li>
+                </ul>
+                
+                <p class="note">**If client has added redlines and/or comments, including exceptions to WTW standard (modified language or additional provisions), additional involvement with Legal and/or SMEs will be needed after the first round of WTW redlines</p>
+                
+                <p class="note">Due to capacity issues within the current Privacy team, documents with privacy language are initially reviewed by the assigned Legal Counsel, if they're unable to approve, they will send directly to the Privacy team for review. This is likely to increase processing time</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

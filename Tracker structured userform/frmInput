@@ -1,0 +1,771 @@
+' UserForm1.frm - UserForm code with event handlers
+Option Explicit
+
+Private Sub cmdExtract_Click()
+    Call OutlookIntegration.ExtractEmailContent
+End Sub
+
+Private Sub cmdSave_Click()
+    Call SaveFormData
+End Sub
+
+Private Sub cmdClear_Click()
+    ' Ask for confirmation before clearing the form
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to clear all fields and reset the form?", _
+                      vbQuestion + vbYesNo, "Confirm Clear")
+    
+    If response = vbYes Then
+        ' Clear all form fields
+        Call ClearFormFields
+        
+        ' Reset the change status
+        Call ResetChangeStatus
+        
+        ' Clear row number label
+        lblRowNum.Caption = ""
+        
+        ' Clear notification messages
+        lblMsg.Text = ""
+        lblMsg.Visible = False
+        
+        ' Reset the save button caption
+        cmdSave.Caption = "Save Record"
+        
+        ' Disable to the download files button
+        cmdDownloadFiles.Enabled = False
+    End If
+End Sub
+
+Private Sub ImgSearch_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    ' Search for LM number in Box Assignment Tracker
+    Call SearchLMNumber
+End Sub
+
+Private Sub ImgCDRSearch_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    ' Search for CDR number in Box Assignment Tracker
+    Call SearchCDRNumber
+End Sub
+
+' Function to search for LM number in Box Assignment Tracker sheet
+Sub SearchLMNumber()
+    On Error GoTo ErrorHandler
+    
+    ' Get the LM number from the form and clean it up
+    Dim lmNumber As String
+    Dim i As Integer
+    lmNumber = CleanLMNumber(Trim(txtLM.Text))
+    
+    ' Validate that an LM number is entered
+    If lmNumber = "" Then
+        DisplayMessage "Please enter an LM number to search.", True
+        txtLM.SetFocus
+        Exit Sub
+    End If
+    
+    ' Confirm search with the user
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to search for LM number: " & lmNumber & "?", _
+                     vbQuestion + vbYesNo, "Confirm Search")
+    
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Reference the worksheet
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("Box Assignment Tracker")
+    
+    ' Search for the LM number in column D (assuming LM number is stored in column D)
+    Dim foundCell As Range
+    Set foundCell = ws.Columns("D").Find(What:=lmNumber, _
+                                      LookIn:=xlValues, _
+                                      LookAt:=xlWhole, _
+                                      SearchOrder:=xlByRows, _
+                                      SearchDirection:=xlNext, _
+                                      MatchCase:=False)
+    
+    ' Check if LM number is found
+    If foundCell Is Nothing Then
+        DisplayMessage "LM number " & lmNumber & " was not found in the Box Assignment Tracker.", True
+        Exit Sub
+    End If
+    
+    ' Find all occurrences of the LM number to check for duplicates
+    Dim firstAddress As String
+    Dim duplicateCount As Integer
+    Dim duplicateRows As String
+    
+    firstAddress = foundCell.Address
+    duplicateCount = 1
+    duplicateRows = foundCell.Row & ""
+    
+    ' Continue searching for more occurrences
+    Dim currentCell As Range
+    Set currentCell = foundCell
+    
+    Do
+        Set currentCell = ws.Columns("D").FindNext(After:=currentCell)
+        
+        ' Check if we've completed a full search cycle
+        If currentCell Is Nothing Or currentCell.Address = firstAddress Then
+            Exit Do
+        End If
+        
+        ' Only count if it's an exact match
+        If currentCell.Value = lmNumber Then
+            duplicateCount = duplicateCount + 1
+            duplicateRows = duplicateRows & ", " & currentCell.Row
+        End If
+    Loop
+    
+    ' If duplicates found, prompt the user
+    If duplicateCount > 1 Then
+        Dim dupMsg As String
+        dupMsg = "Found " & duplicateCount & " entries for LM number " & lmNumber & _
+                 " in rows: " & duplicateRows & vbCrLf & vbCrLf & _
+                 "Please fix or check the duplicate records before proceeding."
+        
+        DisplayMessage dupMsg, True
+        Exit Sub ' Exit the function instead of proceeding
+    End If
+    
+    ' Found a match - retrieve the data from that row
+    Dim rowNum As Long
+    rowNum = foundCell.Row
+    
+    ' Clear form fields first to ensure clean data loading
+    Call ClearFormFields
+    
+    ' Populate form fields with data from the found row
+    txtCoordinator.Text = ws.Cells(rowNum, "A").Value
+    txtDate.Text = ws.Cells(rowNum, "B").Value
+    txtEmailSubject.Text = ws.Cells(rowNum, "C").Value
+    txtLM.Text = ws.Cells(rowNum, "D").Value
+    
+    ' Set the Request Type combobox
+    Dim requestValue As String
+    requestValue = ws.Cells(rowNum, "E").Value
+    
+    Dim validRequest As Boolean
+    validRequest = False
+    For i = 0 To cboRequest.ListCount - 1
+        If cboRequest.List(i) = requestValue Then
+            cboRequest.Text = requestValue
+            validRequest = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid request type, set to empty
+    If Not validRequest Then
+        cboRequest.ListIndex = -1
+    End If
+    
+    ' Show/hide email template selection based on contract request type
+    If cboRequest.Text = "Contract Review" Then
+        cboEmailType.Visible = True
+        lblEmailType.Visible = True
+    Else
+        cboEmailType.Visible = False
+        lblEmailType.Visible = False
+    End If
+    
+    ' Set Comet checkbox
+    If UCase(Trim(ws.Cells(rowNum, "G").Value)) = "YES" Then
+        chkComet.Value = True
+    Else
+        chkComet.Value = False
+    End If
+    
+    ' Continue populating fields
+    txtClient.Text = ws.Cells(rowNum, "H").Value
+    txtContractType.Text = ws.Cells(rowNum, "I").Value
+    txtLOB.Text = ws.Cells(rowNum, "J").Value
+    
+    ' Set Region combobox
+    Dim regionValue As String
+    regionValue = ws.Cells(rowNum, "K").Value
+    
+    Dim validRegion As Boolean
+    validRegion = False
+    For i = 0 To cboRegion.ListCount - 1
+        If cboRegion.List(i) = regionValue Then
+            cboRegion.Text = regionValue
+            validRegion = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid region, set to "Not Applicable"
+    If Not validRegion Then
+        cboRegion.Text = "Not Applicable"
+    End If
+    
+    ' Set RCL information
+    cboRCL.Text = ws.Cells(rowNum, "P").Value
+    
+    ' Set CM combobox
+    Dim cmValue As String
+    cmValue = ws.Cells(rowNum, "Q").Value
+    
+    ' Enable override for setting CM
+    chkOverrideCM.Value = True
+    
+    Dim validCM As Boolean
+    validCM = False
+    For i = 0 To cboCM.ListCount - 1
+        If cboCM.List(i) = cmValue Then
+            cboCM.Text = cmValue
+            validCM = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid CM, set to empty
+    If Not validCM Then
+        cboCM.ListIndex = -1
+    End If
+    
+    ' Additional fields
+    txtCDR.Text = ws.Cells(rowNum, "R").Value
+    txtRemarks.Text = ws.Cells(rowNum, "S").Value
+    
+    ' Update row number display to show which row was retrieved
+    lblRowNum.Caption = "Record retrieved from row: " & rowNum
+    
+    ' Change the save button caption to "Update Record" after loading existing record
+    cmdSave.Caption = "Update Record"
+    
+    ' Display success message
+    DisplayMessage "Successfully loaded record for LM number " & lmNumber & " from row " & rowNum & ".", True
+    
+    ' Reset the change status since we just loaded new data
+    Call ResetChangeStatus
+           
+    Exit Sub
+    
+ErrorHandler:
+    ' Handle any errors that occur during the search process
+    DisplayMessage "An error occurred while searching for LM number: " & Err.Description, True
+End Sub
+
+' Function to search for CDR number in Box Assignment Tracker sheet column R
+Sub SearchCDRNumber()
+    On Error GoTo ErrorHandler
+    
+    ' Get the CDR number from the form and trim it
+    Dim cdrNumber As String
+    Dim i As Integer
+    cdrNumber = Trim(txtCDR.Text)
+    
+    ' Validate that a CDR number is entered
+    If cdrNumber = "" Then
+        DisplayMessage "Please enter a CDR number to search.", True
+        txtCDR.SetFocus
+        Exit Sub
+    End If
+    
+    ' Confirm search with the user
+    Dim response As Integer
+    response = MsgBox("Are you sure you want to search for CDR number: " & cdrNumber & "?", _
+                     vbQuestion + vbYesNo, "Confirm Search")
+    
+    If response = vbNo Then
+        Exit Sub
+    End If
+    
+    ' Reference the worksheet
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("Box Assignment Tracker")
+    
+    ' Search for the CDR number in column R
+    Dim foundCell As Range
+    Set foundCell = ws.Columns("R").Find(What:=cdrNumber, _
+                                      LookIn:=xlValues, _
+                                      LookAt:=xlWhole, _
+                                      SearchOrder:=xlByRows, _
+                                      SearchDirection:=xlNext, _
+                                      MatchCase:=False)
+    
+    ' Check if CDR number is found
+    If foundCell Is Nothing Then
+        DisplayMessage "CDR number " & cdrNumber & " was not found in the Box Assignment Tracker.", True
+        Exit Sub
+    End If
+    
+    ' Find all occurrences of the CDR number to check for duplicates
+    Dim firstAddress As String
+    Dim duplicateCount As Integer
+    Dim duplicateRows As String
+    
+    firstAddress = foundCell.Address
+    duplicateCount = 1
+    duplicateRows = foundCell.Row & ""
+    
+    ' Continue searching for more occurrences
+    Dim currentCell As Range
+    Set currentCell = foundCell
+    
+    Do
+        Set currentCell = ws.Columns("R").FindNext(After:=currentCell)
+        
+        ' Check if we've completed a full search cycle
+        If currentCell Is Nothing Or currentCell.Address = firstAddress Then
+            Exit Do
+        End If
+        
+        ' Only count if it's an exact match
+        If currentCell.Value = cdrNumber Then
+            duplicateCount = duplicateCount + 1
+            duplicateRows = duplicateRows & ", " & currentCell.Row
+        End If
+    Loop
+    
+    ' If duplicates found, prompt the user to select one
+    Dim rowNum As Long
+    
+    If duplicateCount > 1 Then
+        ' Multiple entries found - Ask which one to use
+        Dim rowSelected As String
+        rowSelected = InputBox("Multiple entries found with CDR " & cdrNumber & " at rows: " & _
+                             duplicateRows & vbCrLf & vbCrLf & _
+                             "Enter the row number to use:", "Select Row", "")
+        
+        If rowSelected = "" Then
+            Exit Sub  ' User cancelled
+        End If
+        
+        ' Validate the row number entered
+        On Error Resume Next
+        rowNum = CLng(rowSelected)
+        On Error GoTo ErrorHandler
+        
+        If rowNum <= 0 Or rowNum > ws.Rows.Count Then
+            DisplayMessage "Invalid row number. Please enter a valid row number.", True
+            Exit Sub
+        End If
+        
+        ' Check if the entered row number is actually one of the duplicate rows
+        If InStr(1, duplicateRows, CStr(rowNum)) = 0 Then
+            DisplayMessage "The row number you entered doesn't contain the CDR number. Please select from rows: " & _
+                   duplicateRows, True
+            Exit Sub
+        End If
+    Else
+        ' Just one match found - use that row
+        rowNum = foundCell.Row
+    End If
+    
+    ' Clear form fields first to ensure clean data loading
+    Call ClearFormFields
+    
+    ' Populate form fields with data from the found row
+    txtCoordinator.Text = ws.Cells(rowNum, "A").Value
+    txtDate.Text = ws.Cells(rowNum, "B").Value
+    txtEmailSubject.Text = ws.Cells(rowNum, "C").Value
+    txtLM.Text = ws.Cells(rowNum, "D").Value
+    
+    ' Set the Request Type combobox
+    Dim requestValue As String
+    requestValue = ws.Cells(rowNum, "E").Value
+    
+    Dim validRequest As Boolean
+    validRequest = False
+    For i = 0 To cboRequest.ListCount - 1
+        If cboRequest.List(i) = requestValue Then
+            cboRequest.Text = requestValue
+            validRequest = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid request type, set to empty
+    If Not validRequest Then
+        cboRequest.ListIndex = -1
+    End If
+    
+    ' Check if Comet is marked
+    If UCase(Trim(ws.Cells(rowNum, "G").Value)) = "YES" Then
+        chkComet.Value = True
+    Else
+        chkComet.Value = False
+    End If
+    
+    ' Continue populating other fields
+    txtClient.Text = ws.Cells(rowNum, "H").Value
+    txtContractType.Text = ws.Cells(rowNum, "I").Value
+    txtLOB.Text = ws.Cells(rowNum, "J").Value
+    
+    ' Set the Region combobox
+    Dim regionValue As String
+    regionValue = ws.Cells(rowNum, "K").Value
+    
+    Dim validRegion As Boolean
+    validRegion = False
+    For i = 0 To cboRegion.ListCount - 1
+        If cboRegion.List(i) = regionValue Then
+            cboRegion.Text = regionValue
+            validRegion = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid region, set to empty
+    If Not validRegion Then
+        cboRegion.ListIndex = -1
+    End If
+    
+    ' Set the Assigned RCL (Column P)
+    cboRCL.Text = ws.Cells(rowNum, "P").Value
+    
+    ' Set the Contract Manager (Column Q)
+    Dim cmValue As String
+    cmValue = ws.Cells(rowNum, "Q").Value
+    
+    ' First make sure it's unlocked
+    chkOverrideCM.Value = True
+    
+    Dim validCM As Boolean
+    validCM = False
+    For i = 0 To cboCM.ListCount - 1
+        If cboCM.List(i) = cmValue Then
+            cboCM.Text = cmValue
+            validCM = True
+            Exit For
+        End If
+    Next i
+    
+    ' If not a valid CM, set to empty
+    If Not validCM Then
+        cboCM.ListIndex = -1
+    End If
+    
+    ' Set the CDR number (Column R)
+    txtCDR.Text = ws.Cells(rowNum, "R").Value
+    
+    ' Set remarks (Column S)
+    txtRemarks.Text = ws.Cells(rowNum, "S").Value
+    
+    ' Update row number display to show which row was retrieved
+    lblRowNum.Caption = "Record retrieved from row: " & rowNum
+    
+    ' Change the save button caption to "Update Record" after loading existing record
+    cmdSave.Caption = "Update Record"
+    
+    ' Display success message
+    DisplayMessage "Successfully loaded record for CDR number " & cdrNumber & " from row " & rowNum & ".", True
+    
+    ' Reset the change status since we just loaded new data
+    Call ResetChangeStatus
+           
+    Exit Sub
+    
+ErrorHandler:
+    ' Handle any errors that occur during the search process
+    DisplayMessage "An error occurred while searching for CDR number: " & Err.Description, True
+End Sub
+
+Private Sub lblMsg_Change()
+
+End Sub
+
+' Add this to the UserForm_Initialize event
+Private Sub UserForm_Initialize()
+    ' Initialize adding minimize and maximize buttons
+    Dim B As Boolean
+    B = modFormControl.ShowMinimizeButton(UF:=Me, HideButton:=False)
+    B = modFormControl.ShowMaximizeButton(UF:=Me, HideButton:=False)
+    
+    Dim C As Boolean
+    C = modFormControl.MakeFormResizable(UF:=Me, Sizable:=True)
+    C = modFormControl.IsFormResizable(UF:=Me)
+    
+    ' Clear all fields on initialization
+    Call ClearFormFields
+    
+    ' Set initial caption for the Save button
+    cmdSave.Caption = "Save Record"
+    
+    ' Initialize the combobox for email template types
+    cboEmailType.Clear
+    cboEmailType.AddItem "Standard"
+    cboEmailType.AddItem "Standard Urgent"
+    cboEmailType.AddItem "RFP"
+    cboEmailType.AddItem "Direct to Questionnaire"
+    cboEmailType.AddItem "Reroute to ICS"
+    cboEmailType.Text = "Standard"
+    
+    ' Initially hide the email template selection as it will only be shown for Contract Review
+    cboEmailType.Visible = False
+    lblEmailType.Visible = False
+    
+    ' Configure TextBox for proper text wrapping
+    With txtEmailOutput
+        .MultiLine = True
+        .WordWrap = True
+        .ScrollBars = fmScrollBarsVertical
+        .EnterKeyBehavior = True ' Allows Enter key for new lines
+    End With
+    
+    ' Initialize the Request Type ComboBox with valid values
+    With cboRequest
+        .Clear
+        .AddItem "Contract Upload"
+        .AddItem "Contract Review"
+        .AddItem "Out of Scope"
+        .AddItem "Duplicate Request"
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize the Region ComboBox with valid values
+    With cboRegion
+        .Clear
+        .AddItem "USA (Mid-West)"
+        .AddItem "USA (West)"
+        .AddItem "USA (Northeast)"
+        .AddItem "Canada"
+        .AddItem "USA (Southeast)"
+        .AddItem "Great Britain"
+        .AddItem "Western Europe"
+        .AddItem "APAC"
+        .AddItem "Not Applicable"
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize the Contract Manager ComboBox with valid values
+    With cboCM
+        .Clear
+        .AddItem "Dan"
+        .AddItem "Teresa"
+        .AddItem "Thesa"
+        .AddItem "Deb"
+        .AddItem "Faye"
+        .AddItem "Rose"
+        .AddItem "Dee"
+        .AddItem "Ian"
+        .AddItem "Priscilla"
+        .AddItem "Ren"
+        .AddItem "Loise"
+        .AddItem "Emman"
+        .AddItem "Mia"
+        .AddItem "Erica"
+        .AddItem "Chad"
+        .AddItem "Kristin"
+        .AddItem "RxC Group"
+        .AddItem "Pension Outsourcing - Mary Lueth/Deb"
+        .AddItem "Out of Scope - Mailbox"
+        ' Make combobox initially locked until Override CM is checked
+        .Locked = True
+        .ListIndex = -1  ' Set to no selection instead of empty text
+    End With
+    
+    ' Initialize row number label
+    lblRowNum.Caption = ""
+    
+    ' Make sure Override CM checkbox is unchecked by default
+    chkOverrideCM.Value = False
+    
+    ' Add tooltip to the ImgSearch control
+    If Not ImgSearch Is Nothing Then
+        ImgSearch.ControlTipText = "Click to search for an LM number in the Box Assignment Tracker"
+    End If
+    
+    ' Add tooltip to the ImgCDRSearch control
+    If Not ImgCDRSearch Is Nothing Then
+        ImgCDRSearch.ControlTipText = "Click to search for a CDR number in the Box Assignment Tracker"
+    End If
+    
+    ' Initialize the change status label and reset HasChanges flag
+    lblChangeStatus.Caption = ""
+    HasChanges = False
+    
+    ' Initially disable the Download Files button until email is extracted
+    cmdDownloadFiles.Enabled = False
+    
+    ' Load RCL data from References sheet
+    Call LoadRCLData
+    
+    ' Initialize the message label
+    lblMsg.Text = ""
+    lblMsg.Visible = True
+    lblMsg.ForeColor = RGB(240, 0, 0)  ' Red color
+    lblMsg.Font.Bold = True
+End Sub
+
+' Handle Download Files button click event
+Private Sub cmdDownloadFiles_Click()
+    Call OutlookIntegration.DownloadEmailAttachments
+End Sub
+
+' Handle Send Email button click event
+Private Sub cmdSendEmail_Click()
+    Call OutlookIntegration.SendEmail
+End Sub
+
+' Event handlers for form control changes - mark form as changed
+Private Sub txtCDR_Change()
+    ' Update the email subject when the CDR field changes
+    Call UpdateEmailSubject
+    ' Mark form as changed
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtLM_Change()
+    Call UpdateEmailSubject
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtClient_Change()
+    Call UpdateEmailSubject
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtContractType_Change()
+    Call UpdateEmailSubject
+    Call MarkAsChanged
+End Sub
+
+Private Sub cboRequest_Change()
+    ' Show/hide email template selection based on contract request type
+    If cboRequest.Text = "Contract Review" Or cboRequest.Text = "Out of Scope" Then
+        cboEmailType.Visible = True
+        lblEmailType.Visible = True
+        
+        ' Set appropriate email type options based on the request type
+        If cboRequest.Text = "Out of Scope" Then
+            ' For Out of Scope, set default to "Direct to Questionnaire"
+            cboEmailType.Text = "Direct to Questionnaire"
+        Else
+            ' For Contract Review, set default to "Standard"
+            cboEmailType.Text = "Standard"
+        End If
+    Else
+        cboEmailType.Visible = False
+        lblEmailType.Visible = False
+    End If
+    
+    ' Special handling for Out of Scope selection
+    If cboRequest.Text = "Out of Scope" Then
+        ' Set Contract Manager to "Out of Scope - Mailbox"
+        cboCM.Text = "Out of Scope - Mailbox"
+        
+        ' Set Override CM checkbox to True
+        chkOverrideCM.Value = True
+        
+        ' Unlock the CM combobox (this should happen automatically via the checkbox event)
+        cboCM.Locked = False
+    End If
+    
+    ' Special handling for Contract Upload selection
+    If cboRequest.Text = "Contract Upload" Then
+        ' Automatically set Contract Type to "Upload"
+        txtContractType.Text = "Upload"
+    End If
+    
+    ' Also update the email subject when the request type changes
+    Call UpdateEmailSubject
+    
+    ' Mark form as changed
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtCoordinator_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtDate_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtRCLemail_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtRemarks_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub txtLOB_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub cboRegion_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub cboCM_Change()
+    Call MarkAsChanged
+End Sub
+
+Private Sub chkComet_Click()
+    Call MarkAsChanged
+End Sub
+
+Private Sub chkOverrideCM_Click()
+    ' Enable/disable the Contract Manager combobox based on checkbox state
+    cboCM.Locked = Not chkOverrideCM.Value
+    'Call MarkAsChanged
+End Sub
+
+' Check for unsaved changes when closing the form
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    ' Only check if user is closing the form (not if VBA code is closing it)
+    If CloseMode = vbFormControlMenu Then
+        ' If there are unsaved changes, confirm before closing
+        If HasChanges Then
+            Dim response As Integer
+            response = MsgBox("You have unsaved changes. Do you want to save them before closing?", _
+                             vbQuestion + vbYesNoCancel, "Unsaved Changes")
+            
+            Select Case response
+                Case vbYes
+                    ' Try to save data
+                    Call SaveFormData
+                    ' If still has changes after attempting to save, cancel closing
+                    If HasChanges Then
+                        Cancel = True
+                    End If
+                Case vbCancel
+                    ' Cancel closing the form
+                    Cancel = True
+                Case vbNo
+                    ' Continue closing without saving
+            End Select
+        End If
+    End If
+End Sub
+
+' Lookup and populate RCL email based on RCL name selection
+Private Sub cboRCL_Change()
+    ' Only continue if there's a value selected
+    If cboRCL.Text = "" Then
+        txtRCLemail.Text = ""
+        Exit Sub
+    End If
+    
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    
+    ' Set Reference to the References worksheet
+    Set ws = ThisWorkbook.Sheets("References")
+    
+    ' Find the last row with data in column R
+    lastRow = ws.Cells(ws.Rows.Count, "R").End(xlUp).Row
+    
+    ' Loop through column R to find matching RCL name
+    For i = 2 To lastRow
+        If ws.Cells(i, "R").Value = cboRCL.Text Then
+            ' Get corresponding email from column S
+            txtRCLemail.Text = ws.Cells(i, "S").Value
+            Exit For
+        End If
+    Next i
+    
+    ' Mark form as changed
+    Call MarkAsChanged
+End Sub
+
+
+

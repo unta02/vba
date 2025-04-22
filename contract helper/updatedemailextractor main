@@ -1,0 +1,86 @@
+' Main module - Contains entry points and instructions for using the modular system
+Option Explicit
+
+' Global variable to track if changes have been made to the form
+Private HasChanges As Boolean
+
+Private Type SYSTEMTIME
+    wYear As Integer
+    wMonth As Integer
+    wDayOfWeek As Integer
+    wDay As Integer
+    wHour As Integer
+    wMinute As Integer
+    wSecond As Integer
+    wMilliseconds As Integer
+End Type
+
+Private Type TIME_ZONE_INFORMATION
+    Bias As Long
+    StandardName(0 To 31) As Integer
+    StandardDate As SYSTEMTIME
+    StandardBias As Long
+    DaylightName(0 To 31) As Integer
+    DaylightDate As SYSTEMTIME
+    DaylightBias As Long
+End Type
+
+' Entry point for showing the email extractor form
+Public Sub ShowEmailExtractorForm()
+    UserForm1.Show
+End Sub
+
+' This is a modular VBA application for contract email processing
+' Code has been organized into the following modules:
+'
+' Module1.bas - Utility Functions Module
+'   Contains general utility functions and type definitions
+'
+' Module2.bas - Data Processing Module
+'   Contains functions for extracting and processing data from emails
+'
+' Module3.bas - Email Templates Module
+'   Contains email template generation functions
+'
+' Module4.bas - Form Operations Module
+'   Contains functions for form operations like validation and saving data
+'
+' Module5.bas - Email and Outlook Interaction
+'   Contains functions for interacting with Outlook and handling emails
+'
+' Module6.bas - UI Functions Module
+'   Contains UI-related functions like window resizing
+'
+' UserForm1.frm - UserForm code
+'   Contains event handlers for the UserForm
+'
+' ThisWorkbook.bas - Workbook-level events
+'   Contains workbook-level event handlers
+'
+' This modular approach improves performance by:
+' 1. Reducing memory usage
+' 2. Minimizing conflicts when multiple users access via SharePoint
+' 3. Improving code organization and maintainability
+' 4. Making the application more responsive
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

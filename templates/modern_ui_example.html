@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinator Tracker</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-light: #dbeafe;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --text-color: #1e293b;
+            --light-gray: #f1f5f9;
+            --border-color: #cbd5e1;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #64748b;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: #334155;
+        }
+
+        .main-content {
+            display: flex;
+            padding: 24px;
+            gap: 24px;
+        }
+
+        .form-section {
+            flex: 3;
+        }
+
+        .email-section {
+            flex: 2;
+            border-left: 1px solid var(--border-color);
+            padding-left: 24px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #475569;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 0.875rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        /* Add styling for required fields */
+        .required-field::after {
+            content: "*";
+            color: #ef4444;
+            margin-left: 4px;
+        }
+
+        .input-field.error {
+            border-color: #ef4444;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .checkbox-container input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+        }
+
+        .checkbox-container label {
+            margin-bottom: 0;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .separator {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 16px 0;
+        }
+
+        .email-preview {
+            height: 380px;
+            overflow-y: auto;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--light-gray);
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+
+        .email-section h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .primary-button {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .primary-button:hover {
+            background-color: #1d4ed8;
+        }
+
+        .outline-button {
+            background-color: white;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .outline-button:hover {
+            background-color: var(--primary-light);
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: flex-end;
+            padding: 16px 24px;
+            background-color: var(--light-gray);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 9999px;
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+        }
+
+        .textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Coordinator Tracker</h1>
+            <button class="close-btn">&times;</button>
+        </div>
+
+        <div class="main-content">
+            <div class="form-section">
+                <p style="margin-bottom: 16px; font-size: 0.75rem; color: #64748b;">Fields marked with <span style="color: #ef4444;">*</span> are required.</p>
+                <div class="info-grid">
+                    <div class="form-group">
+                        <label for="coordinator" class="required-field">Coordinator</label>
+                        <input type="text" id="coordinator" class="input-field" value="Marvin">
+                    </div>
+                    <div class="form-group">
+                        <label for="date" class="required-field">Date</label>
+                        <input type="date" id="date" class="input-field" value="2025-03-26">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="emailSubject" class="required-field">Email Subject</label>
+                        <input type="text" id="emailSubject" class="input-field" value="Assignment: Request# LM0004712 - ANZ Staff Superannuation (Australia) Pty Ltd">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lm" class="required-field">LM</label>
+                        <input type="text" id="lm" class="input-field" value="LM0004712">
+                    </div>
+                    <div class="form-group">
+                        <label for="contractRequest" class="required-field">Contract Request</label>
+                        <select id="contractRequest" class="input-field">
+                            <option value="Contract Upload" selected>Contract Upload</option>
+                            <option value="Contract Review">Contract Review</option>
+                        </select>
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="inComet">
+                            <label for="inComet">In COMET?</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="clientName" class="required-field">Client Name</label>
+                        <input type="text" id="clientName" class="input-field" value="ANZ Staff Superannuation (Australia) Pty Ltd">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contractType">Contract Type</label>
+                        <input type="text" id="contractType" class="input-field" value="MSA">
+                    </div>
+                    <div class="form-group">
+                        <label for="lob">Lines of Business</label>
+                        <input type="text" id="lob" class="input-field" value="RET">
+                    </div>
+                    <div class="form-group">
+                        <label for="region" class="required-field">Region</label>
+                        <select id="region" class="input-field">
+                            <option value="USA (Mid-West)">USA (Mid-West)</option>
+                            <option value="USA (West)">USA (West)</option>
+                            <option value="USA (Northeast)">USA (Northeast)</option>
+                            <option value="Canada">Canada</option>
+                            <option value="USA (Southeast)">USA (Southeast)</option>
+                            <option value="Great Britain">Great Britain</option>
+                            <option value="Western Europe">Western Europe</option>
+                            <option value="APAC" selected>APAC</option>
+                            <option value="Not Applicable">Not Applicable</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="assignedRCL">Assigned RCL</label>
+                        <input type="text" id="assignedRCL" class="input-field">
+                    </div>
+                    <div class="form-group">
+                        <label for="contractManager">Contract Manager</label>
+                        <select id="contractManager" class="input-field" disabled>
+                            <option value="Dan">Dan</option>
+                            <option value="Teresa">Teresa</option>
+                            <option value="Thesa">Thesa</option>
+                            <option value="Deb">Deb</option>
+                            <option value="Faye">Faye</option>
+                            <option value="Rose">Rose</option>
+                            <option value="Dee">Dee</option>
+                            <option value="Ian">Ian</option>
+                            <option value="Priscilla" selected>Priscilla</option>
+                            <option value="Ren">Ren</option>
+                            <option value="Loise">Loise</option>
+                            <option value="Emman">Emman</option>
+                            <option value="Mia">Mia</option>
+                            <option value="Erica">Erica</option>
+                            <option value="Chad">Chad</option>
+                            <option value="Kristin">Kristin</option>
+                            <option value="RxC Group">RxC Group</option>
+                            <option value="Pension Outsourcing - Mary Lueth/Deb">Pension Outsourcing - Mary Lueth/Deb</option>
+                            <option value="Out of Scope - Mailbox">Out of Scope - Mailbox</option>
+                        </select>
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="overrideCM">
+                            <label for="overrideCM">Override CM assignment</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cdrNumber">CDR or Request number</label>
+                        <input type="text" id="cdrNumber" class="input-field">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="remarks">Remarks</label>
+                        <textarea id="remarks" class="input-field textarea"></textarea>
+                    </div>
+                </div>
+
+                <div class="status-container">
+                    <div class="status-badge" id="lblRowNum">Record saved at row: 42</div>
+                </div>
+                
+                <!-- Validation Alert -->
+                <div class="validation-alert" style="margin-top: 16px; display: none;">
+                    <div style="padding: 12px; background-color: #fee2e2; border: 1px solid #ef4444; border-radius: 6px;">
+                        <h3 style="color: #b91c1c; font-size: 1rem; margin-bottom: 8px;">Missing Required Fields</h3>
+                        <p style="color: #b91c1c; font-size: 0.875rem; margin-bottom: 8px;">The following required fields are missing:</p>
+                        <ul style="color: #b91c1c; font-size: 0.875rem; margin-left: 16px;">
+                            <li>Coordinator</li>
+                            <li>Date</li>
+                            <li>Email Subject</li>
+                        </ul>
+                        <p style="color: #b91c1c; font-size: 0.875rem; margin-top: 8px;">Please fill in all required fields before saving.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="email-section">
+                <h2>Email Content</h2>
+                <div class="email-preview">
+Received - Legal Matter LM0004712
+--------------------------------------------------
+
+SUMMARY OF THE MATTER:
+--------------------------------------------------
+
+Name of company or institution: Michelle Ryan
+
+Request on Behalf of: Chris Porter
+
+Contact's email: michelle.ryan@wtwco.com
+
+Requestor Segment: Health, Wealth & Career
+
+Requestor line of business: Retirement - Consulting
+
+Requested For: Chris Porter
+
+Request Type: Contract Upload
+
+Segment: Health, Wealth & Career
+
+Line of Business: RET (Retirement)
+                </div>
+                <div class="button-container">
+                    <button class="button outline-button">Extract Email Content</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <button class="button outline-button" id="sendEmailButton" style="margin-right: 10px;">Send Email</button>
+            <button class="button primary-button" id="saveButton">Save Record</button>
+        </div>
+    </div>
+
+    <script>
+        // Simple script to demonstrate dynamic button caption change
+        document.addEventListener('DOMContentLoaded', function() {
+            const saveButton = document.getElementById('saveButton');
+            const sendEmailButton = document.getElementById('sendEmailButton');
+            const statusBadge = document.getElementById('lblRowNum');
+            const contractManagerSelect = document.getElementById('contractManager');
+            const overrideCMCheckbox = document.getElementById('overrideCM');
+            
+            // If we have a row number displayed, change button text to "Update Record"
+            if (statusBadge.innerText.trim() !== '') {
+                saveButton.innerText = 'Update Record';
+            }
+            
+            // Handle the Override CM checkbox
+            overrideCMCheckbox.addEventListener('change', function() {
+                // Enable/disable Contract Manager dropdown based on checkbox state
+                contractManagerSelect.disabled = !this.checked;
+                
+                // If unchecked, try to get default CM based on region
+                if (!this.checked) {
+                    // Clear the current selection
+                    contractManagerSelect.value = 'Priscilla'; // Reset to default
+                    
+                    // In a real app, this would look up the value from previous records with same region
+                    const regionSelect = document.getElementById('region');
+                    const selectedRegion = regionSelect.value;
+                    
+                    // For demo - show this behavior with visual feedback
+                    const cmSelect = document.getElementById('contractManager');
+                    cmSelect.style.backgroundColor = '#f0f9ff'; // Light blue background
+                    setTimeout(() => {
+                        cmSelect.style.backgroundColor = ''; // Reset after a short delay
+                    }, 500);
+                }
+            });
+            
+            // When the Save/Update button is clicked
+            saveButton.addEventListener('click', function() {
+                // For demonstration purposes - in real app, this would happen after successful save
+                statusBadge.innerText = 'Record saved at row: 42';
+                saveButton.innerText = 'Update Record';
+            });
+            
+            // When the Send Email button is clicked
+            sendEmailButton.addEventListener('click', function() {
+                // Validate required fields
+                if (!validateRequiredFieldsForEmail()) {
+                    return;
+                }
+                
+                // In a real app, this would send the email
+                // For demo purposes, just show a message
+                alert('Email would be sent to contact with Contract Manager in CC.\n\nRecipient: ' + 
+                      getContactEmail() + '\nCC: ' + getContractManagerEmail());
+            });
+            
+            // Function to validate required fields for email
+            function validateRequiredFieldsForEmail() {
+                const requiredFields = [
+                    { id: 'coordinator', label: 'Coordinator' },
+                    { id: 'date', label: 'Date' }, 
+                    { id: 'emailSubject', label: 'Email Subject' },
+                    { id: 'lm', label: 'LM' },
+                    { id: 'contractRequest', label: 'Contract Request' },
+                    { id: 'clientName', label: 'Client Name' },
+                    { id: 'region', label: 'Region' },
+                    { id: 'assignedRCL', label: 'Assigned RCL' },
+                    { id: 'contractManager', label: 'Contract Manager' }
+                ];
+                
+                let missingFields = [];
+                
+                requiredFields.forEach(field => {
+                    const element = document.getElementById(field.id);
+                    if (!element.value.trim()) {
+                        missingFields.push(field.label);
+                        element.classList.add('error');
+                    } else {
+                        element.classList.remove('error');
+                    }
+                });
+                
+                if (missingFields.length > 0) {
+                    // Show validation alert
+                    const validationAlert = document.querySelector('.validation-alert');
+                    const missingFieldsList = validationAlert.querySelector('ul');
+                    
+                    // Update the missing fields list
+                    missingFieldsList.innerHTML = '';
+                    missingFields.forEach(field => {
+                        const li = document.createElement('li');
+                        li.textContent = field;
+                        missingFieldsList.appendChild(li);
+                    });
+                    
+                    validationAlert.style.display = 'block';
+                    
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        validationAlert.style.display = 'none';
+                    }, 5000);
+                    
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Helper function to get contact email from the email preview
+            function getContactEmail() {
+                const emailPreview = document.querySelector('.email-preview').textContent;
+                const contactEmailMatch = emailPreview.match(/Contact's email: (.+?)(\n|$)/);
+                return contactEmailMatch ? contactEmailMatch[1].trim() : 'michelle.ryan@wtwco.com';
+            }
+            
+            // Helper function to get contract manager email (mock for demo)
+            function getContractManagerEmail() {
+                const cmValue = document.getElementById('contractManager').value;
+                // In a real app, this would look up the email from a database or configuration
+                return cmValue.toLowerCase().replace(/\s+/g, '.') + '@example.com';
+            }
+            
+            // Function to clear all form fields
+            function clearFormFields() {
+                // Clear all text inputs
+                document.getElementById('coordinator').value = '';
+                document.getElementById('date').value = '';
+                document.getElementById('emailSubject').value = '';
+                document.getElementById('lm').value = '';
+                document.getElementById('clientName').value = '';
+                document.getElementById('contractType').value = '';
+                document.getElementById('lob').value = '';
+                document.getElementById('assignedRCL').value = '';
+                document.getElementById('cdrNumber').value = '';
+                document.getElementById('remarks').value = '';
+                
+                // Reset select dropdowns to first option
+                document.getElementById('contractRequest').selectedIndex = 0;
+                document.getElementById('region').selectedIndex = 0;
+                document.getElementById('contractManager').selectedIndex = 0;
+                
+                // Uncheck checkboxes
+                document.getElementById('inComet').checked = false;
+                document.getElementById('overrideCM').checked = false;
+                
+                // Make sure Contract Manager is disabled again
+                document.getElementById('contractManager').disabled = true;
+                
+                // Provide visual feedback that fields were cleared
+                const formInputs = document.querySelectorAll('.input-field');
+                formInputs.forEach(input => {
+                    input.style.backgroundColor = '#f0f9ff'; // Light blue background
+                    setTimeout(() => {
+                        input.style.backgroundColor = ''; // Reset after a short delay
+                    }, 500);
+                });
+            }
+            
+            // When the Extract Email Content button is clicked
+            const extractButton = document.querySelector('.outline-button');
+            extractButton.addEventListener('click', function() {
+                // Clear all fields first
+                clearFormFields();
+                
+                // Reset the status badge and button text
+                statusBadge.innerText = '';
+                saveButton.innerText = 'Save Record';
+                
+                // For demo purposes - simulate populating fields with new data after a delay
+                // In a real app, this would be handled by your data extraction logic
+                setTimeout(() => {
+                    // Example of populating fields with new data
+                    document.getElementById('coordinator').value = 'Marvin';
+                    document.getElementById('date').value = '2025-03-26';
+                    document.getElementById('lm').value = 'LM0004712';
+                    document.getElementById('clientName').value = 'ANZ Staff Superannuation (Australia) Pty Ltd';
+                    document.getElementById('contractType').value = 'MSA';
+                    document.getElementById('lob').value = 'RET';
+                    
+                    // Set the region and request type
+                    const regionSelect = document.getElementById('region');
+                    for (let i = 0; i < regionSelect.options.length; i++) {
+                        if (regionSelect.options[i].value === 'APAC') {
+                            regionSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    // Update the email subject based on form values
+                    updateEmailSubject();
+                }, 300);
+            });
+            
+            // Function to update email subject based on the formula
+            function updateEmailSubject() {
+                const lmField = document.getElementById('lm');
+                const clientField = document.getElementById('clientName');
+                const requestField = document.getElementById('contractRequest');
+                const contractTypeField = document.getElementById('contractType');
+                const cdrField = document.getElementById('cdrNumber');
+                const emailSubjectField = document.getElementById('emailSubject');
+                
+                if (!lmField.value || !clientField.value) return;
+                
+                // Store the old subject for comparison
+                const oldSubject = emailSubjectField.value;
+                
+                // Apply the formula logic
+                if (requestField.value === "Contract Review") {
+                    // For Contract Review: "Assignment: Request# [LM], [CDR]-[Client]-[ContractType]"
+                    let subject = `Assignment: Request# ${lmField.value}, ${cdrField.value}-${clientField.value}-${contractTypeField.value}`;
+                    
+                    // Clean up the subject by removing excess hyphens if CDR is empty
+                    if (!cdrField.value) {
+                        subject = subject.replace(', -', ', ');
+                    }
+                    
+                    emailSubjectField.value = subject;
+                } else {
+                    // For other types (like Contract Upload): "[Last 7 chars of LM]-[Client]"
+                    const lmRight = lmField.value.length >= 7 ? lmField.value.slice(-7) : lmField.value;
+                    emailSubjectField.value = `${lmRight}-${clientField.value}`;
+                }
+                
+                // Provide visual feedback if the subject was updated
+                if (oldSubject !== emailSubjectField.value) {
+                    emailSubjectField.style.backgroundColor = '#f0fff4'; // Light green background
+                    setTimeout(() => {
+                        emailSubjectField.style.backgroundColor = ''; // Reset after 1 second
+                    }, 1000);
+                }
+            }
+            
+            // Update email subject when relevant fields change
+            document.getElementById('contractRequest').addEventListener('change', updateEmailSubject);
+            document.getElementById('lm').addEventListener('input', updateEmailSubject);
+            document.getElementById('clientName').addEventListener('input', updateEmailSubject);
+            document.getElementById('contractType').addEventListener('input', updateEmailSubject);
+            document.getElementById('cdrNumber').addEventListener('input', updateEmailSubject);
+            
+            // Initialize email subject on page load
+            updateEmailSubject();
+        });
+    </script>
+</body>
+</html> 
