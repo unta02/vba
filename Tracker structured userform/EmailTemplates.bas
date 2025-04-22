@@ -239,3 +239,41 @@ Public Function FormatEmailContent(htmlContent As String) As String
     
     FormatEmailContent = formattedContent
 End Function
+
+' Function to load the Out of Scope - Direct to Questionnaire template
+Public Function LoadOutOfScopeQuesTemplate() As String
+    Dim html As String
+    
+    html = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">"
+    html = html & "<p><span style=""color: #ff0000;""><strong><em>Box Coordinator will file a ticket under questionnaire on behalf of the requestor.</em></strong></span></p>"
+    html = html & "<p>Hello <strong><<Requested For: Name>></strong>,</p>"
+    html = html & "<p>Thank you for your submission. However, as this pertains to a questionnaire, it falls outside the scope of our team's responsibilities. As a one-time exception, we will submit an intake form on your behalf.</p>"
+    html = html & "<p>For future submissions, please ensure that you select the appropriate request type. For questionnaires, the correct request type is ""Client Questionnaire.""</p>"
+    html = html & "<p><a href=""mailto:Questionnaire.Management.Team@wtwco.com"">@Questionnaire Management Team</a> please be advised that a questionnaire intake will be coming for <strong><<Client or Supplier Name>></strong>.</p>"
+    html = html & "<p>Closing this request on our end. Thank you.</p>"
+    html = html & "</body></html>"
+    
+    LoadOutOfScopeQuesTemplate = html
+End Function
+
+' Function to load the Out of Scope - Reroute to ICS template
+Public Function LoadOutOfScopeICSTemplate() As String
+    Dim html1 As String, html2 As String
+    
+    html1 = "<!DOCTYPE html><html><body style=""font-family:Arial;font-size:11pt;"">"
+    html1 = html1 & "<p><strong><em><span style=""color: #ff0000;"">Box Coordinator will reassign request to ICS team</span></em></strong><strong><em> in ICS &ndash; Please make sure to include attachments in the email.</em></strong></p>"
+    html1 = html1 & "<p>Hello&nbsp;<strong><<Requested For: Name>></strong>,</p>"
+    html1 = html1 & "<p>Thank you for your submission. However, Please be advised that this request is out of scope due to one/combination of the following:</p>"
+    html1 = html1 & "<ul>"
+    html1 = html1 & "<li>The contract is written in non-english language</li>"
+    html1 = html1 & "<li>We don&rsquo;t currently support the region and/or country involved</li>"
+    html1 = html1 & "<li>We don&rsquo;t currently support the Line of Business involved</li>"
+    html1 = html1 & "</ul>"
+    
+    html2 = "<p>Please route it to your usual business process. You may refer to <a href=""https://wtwonline.sharepoint.com/sites/OGC/Shared%20Documents/Forms/AllItems.aspx?id=%2fsites%2fOGC%2fShared+Documents%2fLegal+Key+Contacts.pdf&amp;parent=%2fsites%2fOGC%2fShared+Documents&amp;xsdata=MDV8MDJ8bWFydmluLnRheWFnQHd0d2NvLmNvbXxlMmRiYTg1MzY1MjU0Mjg3ZWNkNTA4ZGQ4MGY5MDMzYXw3NmUzOTIxZjQ4OWI0YjdlOTU0NzllYTI5N2FkZDliNXwwfDB8NjM4ODA4NTI5MTc4OTc5ODcwfFVua25vd258VFdGcGJHWnNiM2Q4ZXlKRmJYQjBlVTFoY0draU9uUnlkV1VzSWxZaU9pSXdMakF1TURBd01DSXNJbEFpT2lKWGFXNHpNaUlzSWtGT0lqb2lUV0ZwYkNJc0lsZFVJam95ZlE9PXwwfHx8&amp;sdata=aWtOcmxXMVFmb21WS3hGRHVxRDBaMG9TTFpBYXE2WDRBa0VDUk5MZ1J3Zz0%3d"">&nbsp;Legal Key Contacts List</a> for legal review.</p>"
+    html2 = html2 & "<p><a href=""mailto:IS.ClientServices@wtwco.com"">@ICS.ClientAssurance</a>, sending this over to you for further review and will</p>"
+    html2 = html2 & "<p>Closing this request on our end. Thank you.</p>"
+    html2 = html2 & "</body></html>"
+    
+    LoadOutOfScopeICSTemplate = html1 & html2
+End Function
