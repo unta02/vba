@@ -487,16 +487,14 @@ Private Sub UserForm_Initialize()
     ' Set initial caption for the Save button
     cmdSave.Caption = "Save Record"
     
-    ' Initialize the combobox for email template types
+    ' Initialize the combobox for email template types - default values for Contract Review
     cboEmailType.Clear
     cboEmailType.AddItem "Standard"
     cboEmailType.AddItem "Standard Urgent"
     cboEmailType.AddItem "RFP"
-    cboEmailType.AddItem "Direct to Questionnaire"
-    cboEmailType.AddItem "Reroute to ICS"
     cboEmailType.Text = "Standard"
     
-    ' Initially hide the email template selection as it will only be shown for Contract Review
+    ' Initially hide the email template selection as it will only be shown for Contract Review or Out of Scope
     cboEmailType.Visible = False
     lblEmailType.Visible = False
     
@@ -632,29 +630,34 @@ Private Sub cboRequest_Change()
         cboEmailType.Visible = True
         lblEmailType.Visible = True
         
+        ' Clear existing items first
+        cboEmailType.Clear
+        
         ' Set appropriate email type options based on the request type
         If cboRequest.Text = "Out of Scope" Then
-            ' For Out of Scope, set default to "Direct to Questionnaire"
+            ' For Out of Scope, only show these specific options
+            cboEmailType.AddItem "Direct to Questionnaire"
+            cboEmailType.AddItem "Reroute to ICS"
             cboEmailType.Text = "Direct to Questionnaire"
+            
+            ' Set Contract Manager to "Out of Scope - Mailbox"
+            cboCM.Text = "Out of Scope - Mailbox"
+            
+            ' Set Override CM checkbox to True
+            chkOverrideCM.Value = True
+            
+            ' Unlock the CM combobox (this should happen automatically via the checkbox event)
+            cboCM.Locked = False
         Else
-            ' For Contract Review, set default to "Standard"
+            ' For Contract Review, only show these specific options
+            cboEmailType.AddItem "Standard"
+            cboEmailType.AddItem "Standard Urgent"
+            cboEmailType.AddItem "RFP"
             cboEmailType.Text = "Standard"
         End If
     Else
         cboEmailType.Visible = False
         lblEmailType.Visible = False
-    End If
-    
-    ' Special handling for Out of Scope selection
-    If cboRequest.Text = "Out of Scope" Then
-        ' Set Contract Manager to "Out of Scope - Mailbox"
-        cboCM.Text = "Out of Scope - Mailbox"
-        
-        ' Set Override CM checkbox to True
-        chkOverrideCM.Value = True
-        
-        ' Unlock the CM combobox (this should happen automatically via the checkbox event)
-        cboCM.Locked = False
     End If
     
     ' Special handling for Contract Upload selection
