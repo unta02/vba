@@ -8,15 +8,38 @@ Public Sub ShowSOWBuilder()
 End Sub
 
 ' Generate SOW document based on the form inputs
-Public Sub GenerateSOWDocument(ByVal clientInfo As Dictionary, ByVal compensationOption As String, _
+Public Sub GenerateSOWDocument(ByVal clientInfo As Object, ByVal compensationOption As String, _
                               ByVal annualFee As String, ByVal billingOption As String, _
-                              ByVal policies As Collection, ByVal optionalClauses As Dictionary, _
+                              ByVal policies As Object, ByVal optionalClauses As Object, _
                               ByVal additionalNotes As String)
+    On Error GoTo ErrorHandler
+    
+    ' Type validation
+    If TypeName(clientInfo) <> "Dictionary" Then
+        Err.Raise vbObjectError + 1000, "GenerateSOWDocument", "clientInfo must be a Dictionary object"
+    End If
+    
+    If TypeName(policies) <> "Collection" Then
+        Err.Raise vbObjectError + 1001, "GenerateSOWDocument", "policies must be a Collection object"
+    End If
+    
+    If TypeName(optionalClauses) <> "Dictionary" Then
+        Err.Raise vbObjectError + 1002, "GenerateSOWDocument", "optionalClauses must be a Dictionary object"
+    End If
+    
+    ' Make sure annualFee is a string or can be converted to a string
+    Dim feeStr As String
+    If IsNumeric(annualFee) Then
+        feeStr = CStr(annualFee)
+    Else
+        feeStr = annualFee
+    End If
+    
     Dim doc As Document
     Set doc = Documents.Add
     
     ' Create the document content
-    FillSOWDocument doc, clientInfo, compensationOption, annualFee, billingOption, _
+    FillSOWDocument doc, clientInfo, compensationOption, feeStr, billingOption, _
                    policies, optionalClauses, additionalNotes
     
     ' Format document
@@ -24,13 +47,24 @@ Public Sub GenerateSOWDocument(ByVal clientInfo As Dictionary, ByVal compensatio
     
     ' Display success message
     MsgBox "SOW document has been generated successfully!", vbInformation
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "Error in GenerateSOWDocument: " & Err.Description & vbCrLf & _
+           "Error Number: " & Err.Number, vbCritical
+    Debug.Print "Error in GenerateSOWDocument: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Resume Next
 End Sub
 
 ' Fill the document with all the embedded text and user inputs
-Private Sub FillSOWDocument(doc As Document, ByVal clientInfo As Dictionary, _
+Private Sub FillSOWDocument(doc As Document, ByVal clientInfo As Object, _
                           ByVal compensationOption As String, ByVal annualFee As String, _
-                          ByVal billingOption As String, ByVal policies As Collection, _
-                          ByVal optionalClauses As Dictionary, ByVal additionalNotes As String)
+                          ByVal billingOption As String, ByVal policies As Object, _
+                          ByVal optionalClauses As Object, ByVal additionalNotes As String)
+    On Error GoTo ErrorHandler
+    
     Dim rng As Range
     Set rng = doc.Content
     
@@ -40,7 +74,7 @@ Private Sub FillSOWDocument(doc As Document, ByVal clientInfo As Dictionary, _
     ' Collapse to start
     rng.Collapse Direction:=wdCollapseStart
     
-    ' Add document title and header
+    ' Add document header and client information
     AddDocumentHeader rng, clientInfo
     
     ' Add Terms and Conditions section
@@ -60,26 +94,65 @@ Private Sub FillSOWDocument(doc As Document, ByVal clientInfo As Dictionary, _
     
     ' Add Attachment for Scope of Services
     AddAttachment rng
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in FillSOWDocument: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Add document header and client information
-Private Sub AddDocumentHeader(rng As Range, clientInfo As Dictionary)
+Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
+    On Error GoTo ErrorHandler
+    
     ' Add document title
     rng.InsertAfter "STATEMENT OF WORK" & vbCrLf & vbCrLf
     
-    ' Add date
-    rng.InsertAfter clientInfo("Date") & vbCrLf & vbCrLf
-    
-    ' Add client contact information
-    rng.InsertAfter clientInfo("ContactName") & vbCrLf
-    rng.InsertAfter clientInfo("CompanyName") & vbCrLf
-    
-    If Trim(clientInfo("Address1")) <> "" Then
-        rng.InsertAfter clientInfo("Address1") & vbCrLf
+    ' Ensure clientInfo is a Dictionary type
+    If TypeName(clientInfo) <> "Dictionary" Then
+        rng.InsertAfter "[Date]" & vbCrLf & vbCrLf
+        rng.InsertAfter "[Contact Name]" & vbCrLf
+        rng.InsertAfter "[Company Name]" & vbCrLf
+        rng.InsertAfter "[Address Line 1]" & vbCrLf
+        rng.InsertAfter "[Address Line 2]" & vbCrLf & vbCrLf
+        rng.InsertAfter "Subject: Statement of Work for Health & Benefits Services" & vbCrLf & vbCrLf
+        rng.InsertAfter "Dear [Name]:" & vbCrLf & vbCrLf
+        rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of [WTW Entity] (""WTW"", ""we"" or ""us"") by [Client Legal Name] (""Client"" or ""you"")." & vbCrLf & vbCrLf
+        Exit Sub
     End If
     
-    If Trim(clientInfo("Address2")) <> "" Then
+    ' Add date
+    If clientInfo.Exists("Date") Then
+        rng.InsertAfter clientInfo("Date") & vbCrLf & vbCrLf
+    Else
+        rng.InsertAfter "[Date]" & vbCrLf & vbCrLf
+    End If
+    
+    ' Add client contact information
+    If clientInfo.Exists("ContactName") Then
+        rng.InsertAfter clientInfo("ContactName") & vbCrLf
+    Else
+        rng.InsertAfter "[Contact Name]" & vbCrLf
+    End If
+    
+    If clientInfo.Exists("CompanyName") Then
+        rng.InsertAfter clientInfo("CompanyName") & vbCrLf
+    Else
+        rng.InsertAfter "[Company Name]" & vbCrLf
+    End If
+    
+    If clientInfo.Exists("Address1") And Trim(clientInfo("Address1")) <> "" Then
+        rng.InsertAfter clientInfo("Address1") & vbCrLf
+    Else
+        rng.InsertAfter "[Address Line 1]" & vbCrLf
+    End If
+    
+    If clientInfo.Exists("Address2") And Trim(clientInfo("Address2")) <> "" Then
         rng.InsertAfter clientInfo("Address2") & vbCrLf
+    Else
+        rng.InsertAfter "[Address Line 2]" & vbCrLf
     End If
     
     rng.InsertAfter vbCrLf
@@ -88,12 +161,28 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Dictionary)
     rng.InsertAfter "Subject: Statement of Work for Health & Benefits Services" & vbCrLf & vbCrLf
     
     ' Add salutation
-    rng.InsertAfter "Dear " & clientInfo("ContactName") & ":" & vbCrLf & vbCrLf
+    If clientInfo.Exists("ContactName") Then
+        rng.InsertAfter "Dear " & clientInfo("ContactName") & ":" & vbCrLf & vbCrLf
+    Else
+        rng.InsertAfter "Dear [Name]:" & vbCrLf & vbCrLf
+    End If
     
     ' Add opening paragraph
-    rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of " & _
-                 clientInfo("WTWParty") & " (""WTW"", ""we"" or ""us"") by " & clientInfo("ClientName") & _
-                 " (""Client"" or ""you"")." & vbCrLf & vbCrLf
+    If clientInfo.Exists("WTWParty") And clientInfo.Exists("ClientName") Then
+        rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of " & _
+                     clientInfo("WTWParty") & " (""WTW"", ""we"" or ""us"") by " & clientInfo("ClientName") & _
+                     " (""Client"" or ""you"")." & vbCrLf & vbCrLf
+    Else
+        rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of [WTW Entity] (""WTW"", ""we"" or ""us"") by [Client Legal Name] (""Client"" or ""you"")." & vbCrLf & vbCrLf
+    End If
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in AddDocumentHeader: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "clientInfo type: " & TypeName(clientInfo)
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Add Terms and Conditions section
@@ -106,21 +195,50 @@ Private Sub AddTermsAndConditionsSection(rng As Range)
 End Sub
 
 ' Add Term and Termination section
-Private Sub AddTermAndTerminationSection(rng As Range, clientInfo As Dictionary, optionalClauses As Dictionary)
+Private Sub AddTermAndTerminationSection(rng As Range, clientInfo As Object, optionalClauses As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "II. Term and Termination:" & vbCrLf & vbCrLf
-    rng.InsertAfter "The term of this SOW will begin on " & clientInfo("StartDate") & " and end on " & _
-                 clientInfo("EndDate") & ". Either party may terminate this SOW upon 60 days prior written notice to the other party." & vbCrLf & vbCrLf
+    
+    ' Ensure clientInfo is a Dictionary and has the required keys
+    If TypeName(clientInfo) = "Dictionary" Then
+        If clientInfo.Exists("StartDate") And clientInfo.Exists("EndDate") Then
+            rng.InsertAfter "The term of this SOW will begin on " & clientInfo("StartDate") & " and end on " & _
+                         clientInfo("EndDate") & ". Either party may terminate this SOW upon 60 days prior written notice to the other party." & vbCrLf & vbCrLf
+        Else
+            rng.InsertAfter "The term of this SOW will begin on _______________ and end on _______________. " & _
+                         "Either party may terminate this SOW upon 60 days prior written notice to the other party." & vbCrLf & vbCrLf
+        End If
+    Else
+        rng.InsertAfter "The term of this SOW will begin on _______________ and end on _______________. " & _
+                     "Either party may terminate this SOW upon 60 days prior written notice to the other party." & vbCrLf & vbCrLf
+    End If
     
     ' Add auto-renewal if selected
-    If optionalClauses("AutoRenewal") Then
-        rng.InsertAfter "Upon the expiration of the term, or any renewal term, this SOW will renew automatically for successive one-year terms " & _
-                     "unless either party gives notice of non-renewal at least 60 days before the scheduled expiration date." & vbCrLf & vbCrLf
+    If TypeName(optionalClauses) = "Dictionary" Then
+        If optionalClauses.Exists("AutoRenewal") Then
+            If optionalClauses("AutoRenewal") Then
+                rng.InsertAfter "Upon the expiration of the term, or any renewal term, this SOW will renew automatically for successive one-year terms " & _
+                             "unless either party gives notice of non-renewal at least 60 days before the scheduled expiration date." & vbCrLf & vbCrLf
+            End If
+        End If
     End If
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in AddTermAndTerminationSection: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "clientInfo type: " & TypeName(clientInfo)
+    Debug.Print "optionalClauses type: " & TypeName(optionalClauses)
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Add Compensation section based on selected option
-Private Sub AddCompensationSection(rng As Range, compensationOption As String, annualFee As String, _
-                                  billingOption As String, policies As Collection)
+Private Sub AddCompensationSection(rng As Range, compensationOption As String, _
+                                  annualFee As String, billingOption As String, policies As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "III. Compensation" & vbCrLf & vbCrLf
     
     Select Case compensationOption
@@ -132,7 +250,24 @@ Private Sub AddCompensationSection(rng As Range, compensationOption As String, a
             InsertFeeOffset rng, annualFee, billingOption, policies
         Case "D"
             InsertCommissionOnly rng, policies
+        Case Else
+            ' Default to fee only if option not recognized
+            InsertFeeOnly rng, annualFee, billingOption
     End Select
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in AddCompensationSection: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "compensationOption: " & compensationOption
+    Debug.Print "annualFee: " & annualFee
+    Debug.Print "billingOption: " & billingOption
+    Debug.Print "policies type: " & TypeName(policies)
+    If TypeName(policies) = "Collection" Then
+        Debug.Print "policies count: " & policies.Count
+    End If
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Insert fee-only compensation option
@@ -155,7 +290,9 @@ Private Sub InsertFeeOnly(rng As Range, annualFee As String, billingOption As St
 End Sub
 
 ' Insert fee plus commission option
-Private Sub InsertFeePlusCommission(rng As Range, annualFee As String, billingOption As String, policies As Collection)
+Private Sub InsertFeePlusCommission(rng As Range, annualFee As String, billingOption As String, policies As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "You agree that our compensation for the Services will be an annual fee of $" & _
                  annualFee & ", payable by you to us as follows." & vbCrLf & vbCrLf
     
@@ -174,7 +311,15 @@ Private Sub InsertFeePlusCommission(rng As Range, annualFee As String, billingOp
                  "commissions paid to us by insurers for the sale of the following insurance policies:" & vbCrLf & vbCrLf
     
     ' Insert policy list
-    InsertPolicyList rng, policies
+    If TypeName(policies) = "Collection" Then
+        If policies.Count > 0 Then
+            InsertPolicyList rng, policies
+        Else
+            rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+        End If
+    Else
+        rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+    End If
     
     ' Insert additional explanation
     rng.InsertAfter "To the extent that we receive both fees and commissions for Services related to the same insurance policies, " & _
@@ -188,10 +333,19 @@ Private Sub InsertFeePlusCommission(rng As Range, annualFee As String, billingOp
     
     ' Insert earned fee table
     InsertEarnedFeeTable rng
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in InsertFeePlusCommission: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Insert fee offset by commission option
-Private Sub InsertFeeOffset(rng As Range, annualFee As String, billingOption As String, policies As Collection)
+Private Sub InsertFeeOffset(rng As Range, annualFee As String, billingOption As String, policies As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "You agree that our compensation for the Services will be an annual fee of $" & _
                  annualFee & ", payable by you to us as follows." & vbCrLf & vbCrLf
     
@@ -213,21 +367,42 @@ Private Sub InsertFeeOffset(rng As Range, annualFee As String, billingOption As 
                  "commissions received." & vbCrLf & vbCrLf
     
     ' Insert policy list
-    InsertPolicyList rng, policies
+    If TypeName(policies) = "Collection" Then
+        If policies.Count > 0 Then
+            InsertPolicyList rng, policies
+        Else
+            rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+        End If
+    Else
+        rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+    End If
     
     ' Insert earned fee table
     InsertEarnedFeeTable rng
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in InsertFeeOffset: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Insert commission-only option
-Private Sub InsertCommissionOnly(rng As Range, policies As Collection)
+Private Sub InsertCommissionOnly(rng As Range, policies As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "You agree that we will be compensated by commissions paid to us by insurers for the sale of the insurance policies " & _
                  "that you purchase. All commissions will be fully disclosed to you prior to our placing coverage. The commissions " & _
                  "will be earned for the entire policy period at the time we place insurance policies for you." & vbCrLf & vbCrLf
     
     ' Insert policy list if there are policies
-    If policies.Count > 0 Then
-        InsertPolicyList rng, policies
+    If TypeName(policies) = "Collection" Then
+        If policies.Count > 0 Then
+            InsertPolicyList rng, policies
+        Else
+            rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+        End If
     Else
         rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
     End If
@@ -239,6 +414,13 @@ Private Sub InsertCommissionOnly(rng As Range, policies As Collection)
     
     ' Insert additional information
     rng.InsertAfter "Information regarding other compensation we may receive is described in the Brokerage Terms." & vbCrLf & vbCrLf
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in InsertCommissionOnly: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Insert billing details based on selection
@@ -270,7 +452,14 @@ Private Sub InsertExpensesParagraph(rng As Range)
 End Sub
 
 ' Insert policy list from collection
-Private Sub InsertPolicyList(rng As Range, policies As Collection)
+Private Sub InsertPolicyList(rng As Range, policies As Object)
+    On Error GoTo ErrorHandler
+    
+    ' Validate policies parameter
+    If TypeName(policies) <> "Collection" Then
+        Exit Sub
+    End If
+    
     ' Add safeguard against null or empty collection
     If policies Is Nothing Then
         Exit Sub
@@ -287,6 +476,18 @@ Private Sub InsertPolicyList(rng As Range, policies As Collection)
     Next policy
     
     rng.InsertAfter vbCrLf
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in InsertPolicyList: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "Policies type: " & TypeName(policies)
+    If TypeName(policies) = "Collection" And Not policies Is Nothing Then
+        Debug.Print "Policies count: " & policies.Count
+    End If
+    ' Continue execution despite errors in this function
+    Resume Next
 End Sub
 
 ' Insert earned fee table for options A, B, and C
@@ -309,14 +510,20 @@ Private Sub InsertEarnedFeeTable(rng As Range)
 End Sub
 
 ' Add Additional Terms section
-Private Sub AddAdditionalTermsSection(rng As Range, optionalClauses As Dictionary, additionalNotes As String)
+Private Sub AddAdditionalTermsSection(rng As Range, optionalClauses As Object, additionalNotes As String)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "IV. Additional Terms" & vbCrLf & vbCrLf
     
     ' Add GDPR clause if applicable
-    If optionalClauses("GDPR") Then
-        rng.InsertAfter "The parties acknowledge that WTW may access personal data from Europe that could trigger GDPR requirements. " & _
-                     "For Health & Benefits Brokerage services, WTW will act as a data controller in accordance with applicable " & _
-                     "data protection laws." & vbCrLf & vbCrLf
+    If TypeName(optionalClauses) = "Dictionary" Then
+        If optionalClauses.Exists("GDPR") Then
+            If optionalClauses("GDPR") Then
+                rng.InsertAfter "The parties acknowledge that WTW may access personal data from Europe that could trigger GDPR requirements. " & _
+                             "For Health & Benefits Brokerage services, WTW will act as a data controller in accordance with applicable " & _
+                             "data protection laws." & vbCrLf & vbCrLf
+            End If
+        End If
     End If
     
     ' Add standard out-of-scope services paragraph
@@ -333,23 +540,53 @@ Private Sub AddAdditionalTermsSection(rng As Range, optionalClauses As Dictionar
     ' Add closing
     rng.InsertAfter "Please have an authorized representative of Client countersign below (and do the same in respect of the enclosed copies, " & _
                  "returning a set of countersigned documents to me for our records)." & vbCrLf & vbCrLf
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in AddAdditionalTermsSection: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "optionalClauses type: " & TypeName(optionalClauses)
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Add signature blocks
-Private Sub AddSignatureBlocks(rng As Range, clientInfo As Dictionary)
+Private Sub AddSignatureBlocks(rng As Range, clientInfo As Object)
+    On Error GoTo ErrorHandler
+    
     rng.InsertAfter "IN WITNESS WHEREOF, the parties have executed this SOW effective as of the _____ day of _______________, 20__." & vbCrLf & vbCrLf
     
-    rng.InsertAfter "Signed by and on behalf of " & clientInfo("WTWParty") & vbCrLf & vbCrLf
+    ' Check if clientInfo is a Dictionary and has the WTWParty key
+    If TypeName(clientInfo) = "Dictionary" And clientInfo.Exists("WTWParty") Then
+        rng.InsertAfter "Signed by and on behalf of " & clientInfo("WTWParty") & vbCrLf & vbCrLf
+    Else
+        rng.InsertAfter "Signed by and on behalf of [WTW Entity]" & vbCrLf & vbCrLf
+    End If
+    
     rng.InsertAfter "By: ____________________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Print name: _____________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Print title: _____________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Date: __________________________" & vbCrLf & vbCrLf
     
-    rng.InsertAfter "Accepted and agreed on behalf of " & clientInfo("ClientName") & vbCrLf & vbCrLf
+    ' Check if clientInfo is a Dictionary and has the ClientName key
+    If TypeName(clientInfo) = "Dictionary" And clientInfo.Exists("ClientName") Then
+        rng.InsertAfter "Accepted and agreed on behalf of " & clientInfo("ClientName") & vbCrLf & vbCrLf
+    Else
+        rng.InsertAfter "Accepted and agreed on behalf of [Client Legal Name]" & vbCrLf & vbCrLf
+    End If
+    
     rng.InsertAfter "By: ____________________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Print name: _____________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Print title: _____________________" & vbCrLf & vbCrLf
     rng.InsertAfter "Date: __________________________" & vbCrLf & vbCrLf
+    Exit Sub
+    
+ErrorHandler:
+    Debug.Print "Error in AddSignatureBlocks: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Debug.Print "clientInfo type: " & TypeName(clientInfo)
+    Err.Raise ' Re-raise the error to be caught by the calling function
 End Sub
 
 ' Add attachment for scope of services
