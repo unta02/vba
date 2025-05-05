@@ -1,0 +1,132 @@
+Attribute VB_Name = "SOWBuilderModule"
+Option Explicit
+
+' Main entry point to show the SOW Builder
+Sub ShowSOWBuilder()
+    ' Load and show the form
+    frmSOWBuilder.Show
+End Sub
+
+' Function to create a SOW document from a template
+' This can be called directly or from the form
+Sub CreateSOWDocument(Optional templatePath As String = "")
+    Dim doc As Document
+    
+    ' Use template or create new document
+    If templatePath <> "" Then
+        On Error Resume Next
+        Set doc = Documents.Add(Template:=templatePath)
+        If Err.Number <> 0 Then
+            MsgBox "Error opening template: " & Err.Description, vbExclamation
+            Exit Sub
+        End If
+        On Error GoTo 0
+    Else
+        Set doc = Documents.Add
+    End If
+    
+    ' Add basic structure for a new SOW document
+    With doc
+        ' Add document title
+        .Content.InsertAfter "STATEMENT OF WORK" & vbCrLf & vbCrLf
+        
+        ' Add placeholders for user to fill in
+        .Content.InsertAfter "[Date]" & vbCrLf & vbCrLf
+        .Content.InsertAfter "[Contact Name]" & vbCrLf
+        .Content.InsertAfter "[Company Name]" & vbCrLf
+        .Content.InsertAfter "[Address Line 1]" & vbCrLf
+        .Content.InsertAfter "[Address Line 2]" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Subject: Statement of Work for Health & Benefits Services" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Dear [Name]:" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of [WTW Entity] (""WTW"", ""we"" or ""us"") by [Client Legal Name] (""Client"" or ""you"")." & vbCrLf & vbCrLf
+        
+        ' Add main sections
+        .Content.InsertAfter "I. Terms and Conditions of SOW:" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Client desires to procure and WTW is willing to provide the services listed in Attachment 1 (the ""Services""). These Services will be provided subject to the WTW Health & Benefits Brokerage Terms, Conditions & Disclosures available at: https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf (the ""Brokerage Terms""). Copies of the Brokerage Terms are available upon request." & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "II. Term and Termination:" & vbCrLf & vbCrLf
+        .Content.InsertAfter "The term of this SOW will begin on _______________ and end on _______________. Either party may terminate this SOW upon 60 days prior written notice to the other party." & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "III. Compensation" & vbCrLf & vbCrLf
+        .Content.InsertAfter "[Select compensation option: A (Fee Only), B (Fee plus Commission), C (Fee offset by Commission), or D (Commission Only)]" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "IV. Additional Terms" & vbCrLf & vbCrLf
+        .Content.InsertAfter "If you would like us to vary the Services under this SOW, or to perform additional services that are not included, please advise us. Also, if we believe certain services you have asked us to carry out are not within the defined scope, we will promptly notify you. All out of scope services will be covered under a separate Statement of Work that will specify the additional services that we will perform and the additional compensation that we will receive." & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Please have an authorized representative of Client countersign below (and do the same in respect of the enclosed copies, returning a set of countersigned documents to me for our records)." & vbCrLf & vbCrLf
+        
+        ' Add signature blocks
+        .Content.InsertAfter "IN WITNESS WHEREOF, the parties have executed this SOW effective as of the _____ day of _______________, 20__." & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Signed by and on behalf of [WTW Entity]" & vbCrLf & vbCrLf
+        .Content.InsertAfter "By: ____________________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Print name: _____________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Print title: _____________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Date: __________________________" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Accepted and agreed on behalf of [Client Legal Name]" & vbCrLf & vbCrLf
+        .Content.InsertAfter "By: ____________________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Print name: _____________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Print title: _____________________" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Date: __________________________" & vbCrLf & vbCrLf
+        
+        ' Add attachment header
+        .Content.InsertAfter "Attachments: Attachment 1 -- Scope of Services" & vbCrLf & vbCrLf
+        
+        .Content.InsertAfter "Attachment 1" & vbCrLf & vbCrLf
+        .Content.InsertAfter "Services" & vbCrLf & vbCrLf
+        .Content.InsertAfter "[Attach Scope of Services]" & vbCrLf
+    End With
+    
+    ' Basic formatting
+    FormatSOWDocument doc
+End Sub
+
+' Apply formatting to SOW document
+Sub FormatSOWDocument(doc As Document)
+    With doc
+        ' Format title
+        If .Paragraphs.Count > 0 Then
+            .Paragraphs(1).Range.Font.Bold = True
+            .Paragraphs(1).Range.Font.Size = 14
+            .Paragraphs(1).Alignment = wdAlignParagraphCenter
+        End If
+        
+        ' Format section headers
+        Dim para As Paragraph
+        For Each para In .Paragraphs
+            If InStr(para.Range.Text, "I. Terms and Conditions") > 0 Or _
+               InStr(para.Range.Text, "II. Term and Termination") > 0 Or _
+               InStr(para.Range.Text, "III. Compensation") > 0 Or _
+               InStr(para.Range.Text, "IV. Additional Terms") > 0 Or _
+               InStr(para.Range.Text, "Attachment 1") > 0 Then
+                para.Range.Font.Bold = True
+                para.Range.Font.Underline = wdUnderlineSingle
+            End If
+        Next para
+        
+        ' Set default paragraph formatting
+        .Paragraphs.Format.SpaceAfter = 6
+        .Paragraphs.Format.SpaceBefore = 0
+    End With
+End Sub
+
+' Helper function to find and replace text in a document
+Sub FindAndReplace(doc As Document, findText As String, replaceText As String)
+    With doc.Content.Find
+        .Text = findText
+        .Replacement.Text = replaceText
+        .Forward = True
+        .Wrap = wdFindContinue
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .MatchSoundsLike = False
+        .MatchAllWordForms = False
+        .Execute Replace:=wdReplaceAll
+    End With
+End Sub
