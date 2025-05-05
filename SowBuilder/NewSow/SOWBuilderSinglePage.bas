@@ -225,8 +225,12 @@ Private Sub InsertCommissionOnly(rng As Range, policies As Collection)
                  "that you purchase. All commissions will be fully disclosed to you prior to our placing coverage. The commissions " & _
                  "will be earned for the entire policy period at the time we place insurance policies for you." & vbCrLf & vbCrLf
     
-    ' Insert policy list
-    InsertPolicyList rng, policies
+    ' Insert policy list if there are policies
+    If policies.Count > 0 Then
+        InsertPolicyList rng, policies
+    Else
+        rng.InsertAfter "[Policy list to be determined]" & vbCrLf & vbCrLf
+    End If
     
     ' Insert commission adjustment clause
     rng.InsertAfter "The parties agree that should commissions increase or decrease by an amount exceeding ten percent (10%), " & _
@@ -267,6 +271,15 @@ End Sub
 
 ' Insert policy list from collection
 Private Sub InsertPolicyList(rng As Range, policies As Collection)
+    ' Add safeguard against null or empty collection
+    If policies Is Nothing Then
+        Exit Sub
+    End If
+    
+    If policies.Count = 0 Then
+        Exit Sub
+    End If
+    
     Dim policy As Variant
     
     For Each policy In policies
