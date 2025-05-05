@@ -1,0 +1,6 @@
+ok I'm working on creating a userform to create the SOW document based on the selection in the document you can see some placeholder in bracket [entity] that requires user inputs and conditions showing inside the [condition] to show specific section based on the selection like Select Option A (Fee Only)***,*** will show this section only the section for 
+
+Fee only [Option A (Fee Only)]
+You agree that our compensation for the Services will be an annual fee of $___, payable by you to us as follows. [Provide details about the intended fee installment amounts and timing]
+
+I've already started something as reference that you may refer and UI attach sample that I've created. But please analyze the document and create me a builder based on this document. so for some section's that doesn't have condition to be included in the generation.
