@@ -178,7 +178,7 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
         Set clientRange = rng.Document.Range(clientStart, rng.End)
         clientRange.Bold = True
         
-        rng.InsertAfter " or ")
+        rng.InsertAfter " or "
         
         ' Insert "you" with bold formatting
         Dim youStart As Long
@@ -694,19 +694,19 @@ Private Sub InsertExpensesParagraph(rng As Range)
     rng.ParagraphFormat.LeftIndent = InchesToPoints(0.25)
     rng.ParagraphFormat.FirstLineIndent = InchesToPoints(0)
     
-    ' Set bullet format
-    rng.Range.ListFormat.ApplyBulletDefault
-    
-    ' Insert first bullet point text
-    rng.InsertAfter "reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced to and paid by you directly; and"
-    rng.InsertAfter vbCrLf
-    
-    ' Insert second bullet point text
-    rng.InsertAfter "the amount of any tax or similar assessment based upon our charges."
-    rng.InsertAfter vbCrLf & vbCrLf
-    
-    ' Clear the bullet format for future typing
-    rng.Range.ListFormat.RemoveNumbers
+    ' Set bullet format using the correct method
+    With rng
+        .ListFormat.ApplyBulletDefault
+        .InsertAfter "reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced to and paid by you directly; and"
+        .InsertAfter vbCrLf
+        
+        ' Insert second bullet point text
+        .InsertAfter "the amount of any tax or similar assessment based upon our charges."
+        .InsertAfter vbCrLf & vbCrLf
+        
+        ' Clear the bullet format for future typing
+        .ListFormat.RemoveNumbers
+    End With
     
     ' Reset paragraph format to default
     rng.ParagraphFormat.LeftIndent = InchesToPoints(0)
