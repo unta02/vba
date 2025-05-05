@@ -49,12 +49,17 @@ End Sub
 
 ' Update visibility of controls based on compensation option selected
 Private Sub UpdateCompensationVisibility()
-    ' Hide/show fee related controls
-    fraFeeDetails.Visible = (optA.Value Or optB.Value Or optC.Value)
-    fraBillingOptions.Visible = (optA.Value Or optB.Value Or optC.Value)
+    ' Enable/disable fee related controls instead of hiding them
+    fraFeeDetails.Visible = True ' Always visible
+    fraBillingOptions.Visible = True ' Always visible
+    fraCommissionDetails.Visible = True ' Always visible
     
-    ' Hide/show commission related controls
-    fraCommissionDetails.Visible = (optB.Value Or optC.Value Or optD.Value)
+    ' Enable or disable fee controls
+    txtAnnualFee.Enabled = (optA.Value Or optB.Value Or optC.Value)
+    optMilestone.Enabled = (optA.Value Or optB.Value Or optC.Value)
+    optInstallments.Enabled = (optA.Value Or optB.Value Or optC.Value)
+    lblAnnualFee.Enabled = (optA.Value Or optB.Value Or optC.Value)
+    lblBillingOptions.Enabled = (optA.Value Or optB.Value Or optC.Value)
     
     ' Enable/disable commission controls based on option
     If optB.Value Or optC.Value Or optD.Value Then
@@ -63,12 +68,18 @@ Private Sub UpdateCompensationVisibility()
         btnAddPolicy.Enabled = True
         btnRemovePolicy.Enabled = True
         lstPolicies.Enabled = True
+        lblPolicyDetails.Enabled = True
+        lblPolicyName.Enabled = True
+        lblCommission.Enabled = True
     Else
         txtPolicyName.Enabled = False
         txtCommission.Enabled = False
         btnAddPolicy.Enabled = False
         btnRemovePolicy.Enabled = False
         lstPolicies.Enabled = False
+        lblPolicyDetails.Enabled = False
+        lblPolicyName.Enabled = False
+        lblCommission.Enabled = False
     End If
 End Sub
 
@@ -211,8 +222,7 @@ Private Sub btnGenerate_Click()
     SOWBuilderSinglePage.GenerateSOWDocument clientInfo, compensationOption, _
         feeValue, billingOption, policyCollection, optionalClauses, txtAdditionalNotes.Value
     
-    ' Unload form
-    Unload Me
+    ' Removed: Unload form - Keep form open after generation
     Exit Sub
     
 ErrorHandler:
