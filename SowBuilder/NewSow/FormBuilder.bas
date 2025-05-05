@@ -2,7 +2,7 @@ Attribute VB_Name = "FormBuilder"
 Option Explicit
 
 ' This module automatically creates the SOW Builder form with all controls
-' Run the CreateSOWBuilderForm sub to generate the form
+' Run the CreateSOWBuilderForm sub to generate the form in Word
 
 Public Sub CreateSOWBuilderForm()
     Dim frmNew As Object
@@ -10,16 +10,16 @@ Public Sub CreateSOWBuilderForm()
     
     ' Delete form if it already exists
     On Error Resume Next
-    For Each ctrl In ThisWorkbook.VBProject.VBComponents
+    For Each ctrl In ThisDocument.VBProject.VBComponents
         If ctrl.Name = "frmSOWBuilderSingle" Then
-            ThisWorkbook.VBProject.VBComponents.Remove ctrl
+            ThisDocument.VBProject.VBComponents.Remove ctrl
             Exit For
         End If
     Next ctrl
     On Error GoTo 0
     
     ' Add the form
-    Set frmNew = ThisWorkbook.VBProject.VBComponents.Add(3) ' 3 = UserForm
+    Set frmNew = ThisDocument.VBProject.VBComponents.Add(3) ' 3 = UserForm
     With frmNew
         .Name = "frmSOWBuilderSingle"
         .Properties("Caption") = "SOW Builder"
