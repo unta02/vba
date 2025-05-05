@@ -1,0 +1,150 @@
+# SOW Builder - Form Design Specifications
+
+## Overview
+This document provides detailed specifications for designing the SOW Builder UserForm in Microsoft Word VBA. The form is structured as a multi-page wizard with navigation controls to guide users through the process of creating a Statement of Work document.
+
+## Form Layout
+- **Form Caption**: "SOW Builder"
+- **Width**: 600 points
+- **Height**: 500 points
+- **Position**: Center Owner
+- **Background Color**: System background
+- **Border Style**: Fixed Dialog
+- **Control Box**: Yes (with minimize/maximize buttons)
+
+## Common Controls (Visible on All Pages)
+- **Navigation Buttons**:
+  - btnBack: Position (420, 460), Width: 80, Height: 24, Caption: "< Back"
+  - btnNext: Position (505, 460), Width: 80, Height: 24, Caption: "Next >"
+  - btnGenerate: Position (505, 460), Width: 80, Height: 24, Caption: "Generate"
+  - btnCancel: Position (15, 460), Width: 80, Height: 24, Caption: "Cancel"
+
+- **Progress Indicator**:
+  - lblProgress: Position (200, 460), Width: 200, Height: 20, Caption: "Page X of 4"
+
+## Page 1: Client Information
+- **Frame**: fraPage1
+  - Position: (15, 15)
+  - Width: 570
+  - Height: 430
+  - Caption: "Client Information"
+
+- **Controls**:
+  - lblDate: Caption "Date:", Position (30, 30)
+  - txtDate: Position (150, 30), Width: 140
+  
+  - lblContactName: Caption "Contact Name:", Position (30, 60)
+  - txtContactName: Position (150, 60), Width: 200
+  
+  - lblCompanyName: Caption "Company Name:", Position (30, 90)
+  - txtCompanyName: Position (150, 90), Width: 200
+  
+  - lblAddress1: Caption "Address Line 1:", Position (30, 120)
+  - txtAddress1: Position (150, 120), Width: 250
+  
+  - lblAddress2: Caption "Address Line 2:", Position (30, 150)
+  - txtAddress2: Position (150, 150), Width: 250
+  
+  - lblWTWParty: Caption "WTW Contracting Party:", Position (30, 180)
+  - cmbWTWParty: Position (150, 180), Width: 200, DropDownStyle: 2 - Dropdown List
+  
+  - lblClientName: Caption "Client Legal Name:", Position (30, 210)
+  - txtClientName: Position (150, 210), Width: 200
+  
+  - lblStartDate: Caption "Start Date:", Position (30, 240)
+  - txtStartDate: Position (150, 240), Width: 140
+  
+  - lblEndDate: Caption "End Date:", Position (30, 270)
+  - txtEndDate: Position (150, 270), Width: 140
+
+## Page 2: Compensation Options
+- **Frame**: fraPage2
+  - Position: (15, 15)
+  - Width: 570
+  - Height: 430
+  - Caption: "Compensation Options"
+
+- **Controls**:
+  - fraCompOptions: Position (30, 30), Width: 250, Height: 180, Caption: "Select Compensation Option"
+  - optA: Position (45, 50), Caption: "Option A: Fee Only"
+  - optB: Position (45, 80), Caption: "Option B: Fee + Commission"
+  - optC: Position (45, 110), Caption: "Option C: Fee Offset by Commission"
+  - optD: Position (45, 140), Caption: "Option D: Commission Only"
+  
+  - lblAnnualFee: Position (310, 40), Caption: "Annual Fee:"
+  - txtAnnualFee: Position (380, 40), Width: 140
+
+  - fraBillingOptions: Position (310, 80), Width: 230, Height: 100, Caption: "Billing Options"
+  - optMilestone: Position (325, 100), Caption: "Milestone Billing"
+  - optInstallments: Position (325, 130), Caption: "Regular Installments"
+
+## Page 3: Policy Details
+- **Frame**: fraPage3
+  - Position: (15, 15)
+  - Width: 570
+  - Height: 430
+  - Caption: "Policy Details"
+
+- **Controls**:
+  - fraCommissionDetails: Position (30, 30), Width: 510, Height: 350, Caption: "Commission Details"
+  - lblPolicyName: Position (45, 60), Caption: "Policy Name:"
+  - txtPolicyName: Position (120, 60), Width: 200
+  
+  - lblCommission: Position (45, 90), Caption: "Commission (%):"
+  - txtCommission: Position (120, 90), Width: 60
+  
+  - btnAddPolicy: Position (45, 120), Width: 100, Height: 24, Caption: "Add Policy"
+  - btnRemovePolicy: Position (155, 120), Width: 110, Height: 24, Caption: "Remove Policy"
+  
+  - lstPolicies: Position (45, 150), Width: 320, Height: 200, MultiSelect: 0 - None
+
+## Page 4: Optional Clauses and Completion
+- **Frame**: fraPage4
+  - Position: (15, 15)
+  - Width: 570
+  - Height: 430
+  - Caption: "Optional Clauses and Completion"
+
+- **Controls**:
+  - fraOptionalClauses: Position (30, 30), Width: 250, Height: 100, Caption: "Optional Clauses"
+  - chkAutoRenewal: Position (45, 50), Caption: "Include Auto-Renewal"
+  - chkGDPR: Position (45, 80), Caption: "GDPR Applies"
+  
+  - lblCustomNotes: Position (30, 150), Caption: "Additional Notes:"
+  - txtCustomNotes: Position (30, 170), Width: 510, Height: 80, MultiLine: True, ScrollBars: 2 - Vertical
+  
+  - lblScopeOfServices: Position (30, 260), Caption: "Scope of Services:"
+  - txtScopeOfServices: Position (30, 280), Width: 510, Height: 120, MultiLine: True, ScrollBars: 2 - Vertical
+  
+  - chkUseTemplate: Position (30, 410), Caption: "Use Existing Template"
+
+## Visibility Management
+- On form initialization:
+  - Only fraPage1 is visible
+  - btnBack is disabled
+  - btnGenerate is not visible (only shown on last page)
+  
+- When Option A (Fee Only) is selected:
+  - fraBillingOptions is visible
+  - fraCommissionDetails is not visible
+  
+- When Option B or C is selected:
+  - fraBillingOptions is visible
+  - fraCommissionDetails is visible
+  
+- When Option D (Commission Only) is selected:
+  - fraBillingOptions is not visible
+  - fraCommissionDetails is visible
+
+## Control Navigation
+- btnNext: Increases page number, shows next frame
+- btnBack: Decreases page number, shows previous frame
+- btnGenerate: Visible only on the last page, calls document generation
+- btnCancel: Unloads the form without creating a document
+
+## Data Validation
+The form should implement validation for:
+- Required fields (Client name, contact, dates)
+- Numeric-only inputs for fees and commission percentages
+- Valid date formats
+- Policy list validation (at least one policy for options B, C, and D)
