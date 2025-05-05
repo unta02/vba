@@ -92,8 +92,6 @@ Private Sub FillSOWDocument(doc As Document, ByVal clientInfo As Object, _
     ' Add signature blocks
     AddSignatureBlocks rng, clientInfo
     
-    ' Add Attachment for Scope of Services
-    AddAttachment rng
     Exit Sub
     
 ErrorHandler:
@@ -157,8 +155,15 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
     
     rng.InsertAfter vbCrLf
     
-    ' Add subject line
+    ' Add subject line with bold formatting
+    Dim subjectStart As Long
+    subjectStart = rng.End
     rng.InsertAfter "Subject: Statement of Work for Health & Benefits Services" & vbCrLf & vbCrLf
+    
+    ' Set the subject line to bold
+    Dim subjectRange As Range
+    Set subjectRange = rng.Document.Range(subjectStart, rng.Document.Range(subjectStart).End - 2)
+    subjectRange.Bold = True
     
     ' Add salutation
     If clientInfo.Exists("ContactName") Then
@@ -187,7 +192,17 @@ End Sub
 
 ' Add Terms and Conditions section
 Private Sub AddTermsAndConditionsSection(rng As Range)
+    ' Add section header with proper formatting
+    Dim sectionStart As Long
+    sectionStart = rng.End
+    
     rng.InsertAfter "I. Terms and Conditions of SOW:" & vbCrLf & vbCrLf
+    
+    ' Format the section header as bold
+    Dim sectionRange As Range
+    Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
+    sectionRange.Bold = True
+    
     rng.InsertAfter "Client desires to procure and WTW is willing to provide the services listed in Attachment 1 (the ""Services""). " & _
                  "These Services will be provided subject to the WTW Health & Benefits Brokerage Terms, Conditions & Disclosures available at: " & _
                  "https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf (the ""Brokerage Terms""). " & _
@@ -198,7 +213,16 @@ End Sub
 Private Sub AddTermAndTerminationSection(rng As Range, clientInfo As Object, optionalClauses As Object)
     On Error GoTo ErrorHandler
     
+    ' Add section header with proper formatting
+    Dim sectionStart As Long
+    sectionStart = rng.End
+    
     rng.InsertAfter "II. Term and Termination:" & vbCrLf & vbCrLf
+    
+    ' Format the section header as bold
+    Dim sectionRange As Range
+    Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
+    sectionRange.Bold = True
     
     ' Ensure clientInfo is a Dictionary and has the required keys
     If TypeName(clientInfo) = "Dictionary" Then
@@ -239,7 +263,16 @@ Private Sub AddCompensationSection(rng As Range, compensationOption As String, _
                                   annualFee As String, billingOption As String, policies As Object)
     On Error GoTo ErrorHandler
     
+    ' Add section header with proper formatting
+    Dim sectionStart As Long
+    sectionStart = rng.End
+    
     rng.InsertAfter "III. Compensation" & vbCrLf & vbCrLf
+    
+    ' Format the section header as bold
+    Dim sectionRange As Range
+    Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
+    sectionRange.Bold = True
     
     Select Case compensationOption
         Case "A"
@@ -512,7 +545,16 @@ End Sub
 Private Sub AddAdditionalTermsSection(rng As Range, optionalClauses As Object, additionalNotes As String)
     On Error GoTo ErrorHandler
     
+    ' Add section header with proper formatting
+    Dim sectionStart As Long
+    sectionStart = rng.End
+    
     rng.InsertAfter "IV. Additional Terms" & vbCrLf & vbCrLf
+    
+    ' Format the section header as bold
+    Dim sectionRange As Range
+    Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
+    sectionRange.Bold = True
     
     ' Add GDPR clause if applicable
     If TypeName(optionalClauses) = "Dictionary" Then
@@ -588,15 +630,6 @@ ErrorHandler:
     Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
-' Add attachment for scope of services
-Private Sub AddAttachment(rng As Range)
-    rng.InsertAfter "Attachments: Attachment 1 -- Scope of Services" & vbCrLf & vbCrLf
-    
-    rng.InsertAfter "Attachment 1" & vbCrLf & vbCrLf
-    rng.InsertAfter "Services" & vbCrLf & vbCrLf
-    rng.InsertAfter "[Attach Scope of Services]" & vbCrLf
-End Sub
-
 ' Apply formatting to the document
 Private Sub FormatSOWDocument(doc As Document)
     ' Apply basic formatting
@@ -614,16 +647,19 @@ Private Sub FormatSOWDocument(doc As Document)
             If InStr(para.Range.Text, "I. Terms and Conditions") > 0 Or _
                InStr(para.Range.Text, "II. Term and Termination") > 0 Or _
                InStr(para.Range.Text, "III. Compensation") > 0 Or _
-               InStr(para.Range.Text, "IV. Additional Terms") > 0 Or _
-               InStr(para.Range.Text, "Attachment 1") > 0 Then
+               InStr(para.Range.Text, "IV. Additional Terms") > 0 Then
                 para.Range.Font.Bold = True
+                para.Range.Font.Size = 11
                 para.Range.Font.Underline = wdUnderlineSingle
+                para.Format.SpaceAfter = 8
+                para.Format.SpaceBefore = 12
             End If
         Next para
         
         ' Set default paragraph formatting
-        .Paragraphs.Format.SpaceAfter = 6
+        .Paragraphs.Format.SpaceAfter = 8
         .Paragraphs.Format.SpaceBefore = 0
+        .Paragraphs.Format.LineSpacing = 12 ' Single spacing (12 points)
         
         ' Default font
         .Content.Font.Name = "Arial"
