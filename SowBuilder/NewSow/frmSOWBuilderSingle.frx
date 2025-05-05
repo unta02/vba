@@ -1,0 +1,132 @@
+# Form Design Instructions for frmSOWBuilderSingle
+
+Since binary .frx files cannot be created directly as text, follow these instructions to manually set up the form controls in the VBA editor after creating the form:
+
+## Form Properties
+- Name: frmSOWBuilderSingle
+- Caption: "SOW Builder"
+- Width: 600
+- Height: 500
+- StartUpPosition: 1 - CenterOwner
+
+## Controls to Add
+
+### Client Information Section
+1. **Frame**: fraClientInfo
+   - Caption: "General & Contract Information"
+   - Position: (15, 15)
+   - Width: 570
+   - Height: 180
+
+2. **Labels and Text Boxes**:
+   - Label: lblDate, Caption: "Date:", Position: (25, 35)
+   - TextBox: txtDate, Position: (120, 30), Width: 120
+   
+   - Label: lblContactName, Caption: "Contact Name:", Position: (25, 60)
+   - TextBox: txtContactName, Position: (120, 55), Width: 160
+   
+   - Label: lblCompanyName, Caption: "Company Name:", Position: (25, 85)
+   - TextBox: txtCompanyName, Position: (120, 80), Width: 160
+   
+   - Label: lblAddress1, Caption: "Address Line 1:", Position: (25, 110)
+   - TextBox: txtAddress1, Position: (120, 105), Width: 160
+   
+   - Label: lblAddress2, Caption: "Address Line 2:", Position: (25, 135)
+   - TextBox: txtAddress2, Position: (120, 130), Width: 160
+   
+   - Label: lblWTWParty, Caption: "WTW Contracting:", Position: (290, 35)
+   - ComboBox: cmbWTWParty, Position: (400, 30), Width: 160, Style: 2-Dropdown List
+   
+   - Label: lblClientName, Caption: "Client Legal Name:", Position: (290, 60)
+   - TextBox: txtClientName, Position: (400, 55), Width: 160
+   
+   - Label: lblStartDate, Caption: "Start Date:", Position: (290, 85)
+   - TextBox: txtStartDate, Position: (400, 80), Width: 120
+   
+   - Label: lblEndDate, Caption: "End Date:", Position: (290, 110)
+   - TextBox: txtEndDate, Position: (400, 105), Width: 120
+
+### Compensation Options Section
+3. **Frame**: fraCompOptions
+   - Caption: "Compensation Options"
+   - Position: (15, 205)
+   - Width: 570
+   - Height: 100
+
+4. **Option Buttons**:
+   - OptionButton: optA, Caption: "Option A: Fee Only", Position: (25, 225)
+   - OptionButton: optB, Caption: "Option B: Fee + Commission", Position: (25, 250)
+   - OptionButton: optC, Caption: "Option C: Fee Offset by Commission", Position: (25, 275)
+   - OptionButton: optD, Caption: "Option D: Commission Only", Position: (280, 225)
+   
+   - Label: lblAnnualFee, Caption: "Annual Fee:", Position: (280, 255)
+   - TextBox: txtAnnualFee, Position: (350, 250), Width: 120
+
+### Fee Details Section
+5. **Frame**: fraFeeDetails
+   - Caption: "Fee Details"
+   - Position: (15, 315)
+   - Width: 275
+   - Height: 80
+
+6. **Frame**: fraBillingOptions
+   - Caption: "Billing Options"
+   - Position: (35, 335)
+   - Width: 235
+   - Height: 50
+   
+   - OptionButton: optMilestone, Caption: "Milestone Billing", Position: (45, 355)
+   - OptionButton: optInstallments, Caption: "Regular Installments", Position: (145, 355)
+
+### Commission Details Section
+7. **Frame**: fraCommissionDetails
+   - Caption: "Commission Details"
+   - Position: (300, 315)
+   - Width: 285
+   - Height: 160
+   
+   - Label: lblPolicyName, Caption: "Policy Name:", Position: (310, 335)
+   - TextBox: txtPolicyName, Position: (380, 332), Width: 190
+   
+   - Label: lblCommission, Caption: "Commission (%):", Position: (310, 360)
+   - TextBox: txtCommission, Position: (395, 357), Width: 50
+   
+   - CommandButton: btnAddPolicy, Caption: "Add Policy", Position: (310, 385), Width: 80, Height: 22
+   - CommandButton: btnRemovePolicy, Caption: "Remove Policy", Position: (400, 385), Width: 80, Height: 22
+   
+   - ListBox: lstPolicies, Position: (310, 410), Width: 260, Height: 60
+
+### Optional Clauses Section
+8. **Frame**: fraOptionalClauses
+   - Caption: "Optional Clauses"
+   - Position: (15, 405)
+   - Width: 275
+   - Height: 70
+   
+   - CheckBox: chkAutoRenewal, Caption: "Auto-Renewal", Position: (25, 425)
+   - CheckBox: chkGDPR, Caption: "GDPR Applies", Position: (25, 445)
+
+### Additional Notes Section
+9. **Frame**: fraAdditionalNotes
+   - Caption: "Additional Notes"
+   - Position: (15, 485)
+   - Width: 570
+   - Height: 90
+   
+   - TextBox: txtAdditionalNotes, Position: (25, 505), Width: 550, Height: 60, MultiLine: True, ScrollBars: 2-Vertical
+
+### Action Buttons
+10. **CommandButton**: btnGenerate
+    - Caption: "Generate Doc"
+    - Position: (415, 580)
+    - Width: 80
+    - Height: 25
+
+11. **CommandButton**: btnCancel
+    - Caption: "Cancel"
+    - Position: (505, 580)
+    - Width: 80
+    - Height: 25
+
+## Completion
+After adding all these controls, save the form and implement the VBA code in the frmSOWBuilderSingle module. 
