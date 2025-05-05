@@ -4,7 +4,7 @@ Option Explicit
 ' Main entry point to show the SOW Builder
 Public Sub ShowSOWBuilder()
     ' Load and show the form
-    frmSOWBuilderSingle.Show
+    frmSOWBuilder3.Show
 End Sub
 
 ' Generate SOW document based on the form inputs
