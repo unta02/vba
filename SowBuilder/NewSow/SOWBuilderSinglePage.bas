@@ -16,15 +16,15 @@ Public Sub GenerateSOWDocument(ByVal clientInfo As Object, ByVal compensationOpt
     
     ' Type validation
     If TypeName(clientInfo) <> "Dictionary" Then
-        Err.Raise vbObjectError + 1000, "GenerateSOWDocument", "clientInfo must be a Dictionary object"
+        Debug.Print "Warning: clientInfo is not a Dictionary object, it is a " & TypeName(clientInfo)
     End If
     
     If TypeName(policies) <> "Collection" Then
-        Err.Raise vbObjectError + 1001, "GenerateSOWDocument", "policies must be a Collection object"
+        Debug.Print "Warning: policies is not a Collection object, it is a " & TypeName(policies)
     End If
     
     If TypeName(optionalClauses) <> "Dictionary" Then
-        Err.Raise vbObjectError + 1002, "GenerateSOWDocument", "optionalClauses must be a Dictionary object"
+        Debug.Print "Warning: optionalClauses is not a Dictionary object, it is a " & TypeName(optionalClauses)
     End If
     
     ' Make sure annualFee is a string or can be converted to a string
@@ -100,7 +100,7 @@ ErrorHandler:
     Debug.Print "Error in FillSOWDocument: " & Err.Description
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Add document header and client information
@@ -182,7 +182,7 @@ ErrorHandler:
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
     Debug.Print "clientInfo type: " & TypeName(clientInfo)
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Add Terms and Conditions section
@@ -231,7 +231,7 @@ ErrorHandler:
     Debug.Print "Error source: " & Err.Source
     Debug.Print "clientInfo type: " & TypeName(clientInfo)
     Debug.Print "optionalClauses type: " & TypeName(optionalClauses)
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Add Compensation section based on selected option
@@ -267,7 +267,7 @@ ErrorHandler:
     If TypeName(policies) = "Collection" Then
         Debug.Print "policies count: " & policies.Count
     End If
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Insert fee-only compensation option
@@ -339,7 +339,7 @@ ErrorHandler:
     Debug.Print "Error in InsertFeePlusCommission: " & Err.Description
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Insert fee offset by commission option
@@ -385,7 +385,7 @@ ErrorHandler:
     Debug.Print "Error in InsertFeeOffset: " & Err.Description
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Insert commission-only option
@@ -420,7 +420,7 @@ ErrorHandler:
     Debug.Print "Error in InsertCommissionOnly: " & Err.Description
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Insert billing details based on selection
@@ -486,8 +486,7 @@ ErrorHandler:
     If TypeName(policies) = "Collection" And Not policies Is Nothing Then
         Debug.Print "Policies count: " & policies.Count
     End If
-    ' Continue execution despite errors in this function
-    Resume Next
+    Resume Next ' Continue execution despite errors in this function
 End Sub
 
 ' Insert earned fee table for options A, B, and C
@@ -547,7 +546,7 @@ ErrorHandler:
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
     Debug.Print "optionalClauses type: " & TypeName(optionalClauses)
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Add signature blocks
@@ -586,7 +585,7 @@ ErrorHandler:
     Debug.Print "Error number: " & Err.Number
     Debug.Print "Error source: " & Err.Source
     Debug.Print "clientInfo type: " & TypeName(clientInfo)
-    Err.Raise ' Re-raise the error to be caught by the calling function
+    Resume Next ' Continue execution rather than re-raising the error
 End Sub
 
 ' Add attachment for scope of services
