@@ -1,0 +1,351 @@
+Sub TestBulletPointsInBlankDoc()
+    ' This macro creates a new blank document and inserts the bullet point text
+    
+    ' Create a new blank document
+    Dim newDoc As Document
+    Set newDoc = Documents.Add
+    
+    ' Add a title to the document
+    With newDoc.Content
+        .Font.Bold = True
+        .Font.Size = 14
+        .Text = "Test Document - Charges Text with Bullet Points" & vbCr & vbCr
+        .Font.Bold = False
+        .Font.Size = 12
+    End With
+    
+    ' Insert the main heading text
+    Selection.TypeText "In addition to the fee, our charges will include the following:"
+    Selection.TypeParagraph
+    Selection.TypeParagraph
+    
+    ' Format the first bullet point
+    Selection.ParagraphFormat.LeftIndent = InchesToPoints(0.25)
+    Selection.ParagraphFormat.FirstLineIndent = InchesToPoints(0)
+    
+    ' Set bullet format
+    Selection.Range.ListFormat.ApplyBulletDefault
+    
+    ' Insert first bullet point text
+    Selection.TypeText "reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced to and paid by you directly; and"
+    Selection.TypeParagraph
+    
+    ' Insert second bullet point text
+    Selection.TypeText "the amount of any tax or similar assessment based upon our charges."
+    Selection.TypeParagraph
+    
+    ' Clear the bullet format for future typing
+    Selection.Range.ListFormat.RemoveNumbers
+    
+    ' Reset paragraph format to default
+    Selection.ParagraphFormat.LeftIndent = InchesToPoints(0)
+    Selection.ParagraphFormat.FirstLineIndent = InchesToPoints(0)
+    
+    ' Add a footer note
+    Selection.TypeParagraph
+    Selection.TypeParagraph
+    Selection.Font.Italic = True
+    Selection.TypeText "This document was created using VBA automation on " & Format(Now(), "mm/dd/yyyy hh:mm:ss")
+    Selection.Font.Italic = False
+    
+    ' Move cursor back to top of document
+    Selection.HomeKey Unit:=wdStory
+    
+    MsgBox "Test completed successfully! A new document has been created with the bullet point text.", vbInformation
+End Sub
+
+
+' Original macro for inserting into existing documents
+Sub InsertChargesText()
+    ' This macro inserts a standardized charges text with bullet points
+    
+    ' Make sure we're inserting at the current selection point
+    With Selection
+        
+        ' Insert the main heading text
+        .TypeText "In addition to the fee, our charges will include the following:"
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Format the first bullet point
+        .ParagraphFormat.LeftIndent = InchesToPoints(0.25)
+        .ParagraphFormat.FirstLineIndent = InchesToPoints(0)
+        
+        ' Set bullet format
+        .Range.ListFormat.ApplyBulletDefault
+        
+        ' Insert first bullet point text
+        .TypeText "reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced to and paid by you directly; and"
+        .TypeParagraph
+        
+        ' Insert second bullet point text
+        .TypeText "the amount of any tax or similar assessment based upon our charges."
+        .TypeParagraph
+        
+        ' Clear the bullet format for future typing
+        .Range.ListFormat.RemoveNumbers
+        
+        ' Reset paragraph format to default
+        .ParagraphFormat.LeftIndent = InchesToPoints(0)
+        .ParagraphFormat.FirstLineIndent = InchesToPoints(0)
+    End With
+End Sub
+
+Sub CreateSOWTerminationTable()
+    ' This macro creates a termination fee table in a Word document along with the header text
+    
+    ' Insert the header text first
+    With Selection
+        .Font.Color = wdColorBlack  ' Black color (default)
+        .Font.Size = 11
+        
+        ' Insert the paragraph text
+        .TypeText "You acknowledge that, even though we may regularly invoice you on a different schedule during the term " & _
+                 "of this SOW, a substantial portion of our work is provided prior to and at the effective date of your benefit " & _
+                 "plan. Therefore, if this SOW is terminated before the end of the term, "
+        
+        ' Apply underline to specific text
+        .Font.Underline = True
+        .TypeText "in order to"
+        .Font.Underline = False
+        
+        .TypeText " compensate us fully for " & _
+                 "the services "
+        
+        ' Apply underline to specific text
+        .Font.Underline = True
+        .TypeText "actually provided"
+        .Font.Underline = False
+        
+        .TypeText " to you, the parties agree that the fee is earned and that you will pay us as " & _
+                 "provided in the following table:"
+        
+        ' Add space before the table
+        .TypeParagraph
+        .TypeParagraph
+    End With
+    
+    ' Create a table with 3 rows and 3 columns
+    Dim tbl As Table
+    Set tbl = ActiveDocument.Tables.Add(Range:=Selection.Range, NumRows:=3, NumColumns:=3)
+    
+    ' Format the table
+    With tbl
+        ' Set border style
+        .Borders.InsideLineStyle = wdLineStyleSingle
+        .Borders.OutsideLineStyle = wdLineStyleSingle
+        
+        ' Set column widths
+        .Columns(1).Width = InchesToPoints(2.5)  ' First column
+        .Columns(2).Width = InchesToPoints(1)    ' Second column
+        .Columns(3).Width = InchesToPoints(3.5)  ' Third column
+        
+        ' Set cell padding for all cells
+        .Cell(1, 1).SetWidth ColumnWidth:=InchesToPoints(2.5), RulerStyle:=wdAdjustNone
+        For i = 1 To .Rows.Count
+            For j = 1 To .Columns.Count
+                ' Select the cell first
+                .Cell(i, j).Select
+                ' Then apply formatting to the selection
+                Selection.ParagraphFormat.SpaceBefore = 6
+                Selection.ParagraphFormat.SpaceAfter = 6
+                Selection.ParagraphFormat.LeftIndent = 6
+                Selection.ParagraphFormat.RightIndent = 6
+            Next j
+        Next i
+        
+        ' Row 1
+        .Cell(1, 1).Range.Text = "Strategic Planning"
+        .Cell(1, 2).Range.Text = "15%"
+        .Cell(1, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 2
+        .Cell(2, 1).Range.Text = "Program Renewal / Placement Process"
+        .Cell(2, 2).Range.Text = "35%"
+        .Cell(2, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 3
+        .Cell(3, 1).Range.Text = "Ongoing Service and Resources"
+        .Cell(3, 2).Range.Text = "50%"
+        .Cell(3, 3).Range.Text = "Earned in 12 equal monthly installments (starting at benefit plan effective date)"
+        
+        ' Set vertical alignment for all cells
+        For i = 1 To .Rows.Count
+            For j = 1 To .Columns.Count
+                .Cell(i, j).VerticalAlignment = wdCellAlignVerticalCenter
+            Next j
+        Next i
+        
+        ' Align the percentage column to center
+        For i = 1 To .Rows.Count
+            .Cell(i, 2).Range.ParagraphFormat.Alignment = wdAlignParagraphCenter
+        Next i
+    End With
+    
+    ' Select the table and set a nice table style
+    tbl.Select
+    Selection.Tables(1).Style = "Table Grid"
+    
+    ' Move the cursor after the table
+    Selection.MoveDown Unit:=wdLine, Count:=1
+    Selection.TypeParagraph
+    
+    MsgBox "The SOW termination table has been created successfully.", vbInformation
+End Sub
+
+
+' Create the table in a new document for testing
+Sub TestSOWTerminationTableInNewDoc()
+    ' Create a new document
+    Dim newDoc As Document
+    Set newDoc = Documents.Add
+    
+    ' Run the code to create the table
+    CreateSOWTerminationTable
+    
+    ' Set zoom to 100% for better viewing
+    ActiveWindow.View.Zoom.Percentage = 100
+End Sub
+
+
+Sub CreateFormattedSOWParagraph()
+    ' This macro creates a formatted SOW paragraph with proper spacing and formatting
+    
+    ' Insert the date and contact information with green color
+    With Selection
+        .Font.Color = RGB(0, 176, 80)  ' Green color
+        .Font.Size = 11
+        
+        ' Insert date placeholder
+        .TypeText "[Date]"
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Insert contact information
+        .TypeText "[Contact Name]"
+        .TypeParagraph
+        .TypeText "[ABC Company, Inc.]"
+        .TypeParagraph
+        .TypeText "[Address]"
+        .TypeParagraph
+        .TypeText "[Address]"
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Switch to black color for subject line
+        .Font.Color = wdColorBlack
+        .Font.Bold = True
+        .TypeText "Subject: Statement of Work "
+        
+        ' Add "fore_yr" text
+        .Font.Bold = True
+        .TypeText "fore_yr"
+        
+        ' Continue with the rest of the subject line
+        .Font.Bold = True
+        .TypeText " Health & Benefits Services"
+        .Font.Bold = False
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Insert "Dear [Name]:" line
+        .TypeText "Dear "
+        .Font.Color = RGB(0, 176, 80)  ' Green color
+        .TypeText "[Name]"
+        .Font.Color = wdColorBlack
+        .TypeText ":"
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Insert first paragraph with SOW definition
+        .TypeText "This statement of work ("
+        .Font.Bold = True
+        .TypeText "SOW"
+        .Font.Bold = False
+        .TypeText ") will confirm the terms of the engagement of "
+        
+        ' Insert green text for contracting party
+        .Font.Color = RGB(0, 176, 80)  ' Green color
+        .TypeText "[Click to Select WTW Contracting Party]"
+        .Font.Color = wdColorBlack
+        
+        ' Continue with the paragraph
+        .TypeText " ("
+        .Font.Bold = True
+        .TypeText "WTW"
+        .Font.Bold = False
+        .TypeText ", "
+        .Font.Bold = True
+        .TypeText "we"
+        .Font.Bold = False
+        .TypeText ", or "
+        .Font.Bold = True
+        .TypeText "us"
+        .Font.Bold = False
+        .TypeText ") by "
+        
+        ' Insert green text for client legal name
+        .Font.Color = RGB(0, 176, 80)  ' Green color
+        .TypeText "[Client Legal Name]"
+        .Font.Color = wdColorBlack
+        
+        ' Finish the paragraph
+        .TypeText " ("
+        .Font.Bold = True
+        .TypeText "Client"
+        .Font.Bold = False
+        .TypeText " or "
+        .Font.Bold = True
+        .TypeText "you"
+        .Font.Bold = False
+        .TypeText ")."
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Insert section header
+        .Font.Bold = True
+        .TypeText "I.      Terms and Conditions of SOW:"
+        .Font.Bold = False
+        .TypeParagraph
+        .TypeParagraph
+        
+        ' Insert final paragraph about services
+        .TypeText "Client desires to procure and WTW is willing to provide the services listed in "
+        .Font.Bold = True
+        .TypeText "Attachment 1"
+        .Font.Bold = False
+        .TypeText " (the """
+        .Font.Bold = True
+        .TypeText "Services"
+        .Font.Bold = False
+        .TypeText """). These Services will be provided subject to the WTW Health & Benefits Brokerage Terms, Conditions & Disclosures available at: "
+        
+        ' Insert hyperlink
+        ActiveDocument.Hyperlinks.Add Anchor:=Selection.Range, _
+            Address:="https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf", _
+            TextToDisplay:="https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf"
+            
+        ' Continue with the remaining text
+        .TypeText " (the """
+        .Font.Bold = True
+        .TypeText "Brokerage Terms"
+        .Font.Bold = False
+        .TypeText """).  Copies of the Brokerage Terms are available upon request."
+    End With
+    
+    MsgBox "The formatted SOW paragraph has been created successfully.", vbInformation
+End Sub
+
+' Create the formatted paragraph in a new document for testing
+Sub TestFormattedSOWParagraphInNewDoc()
+    ' Create a new document
+    Dim newDoc As Document
+    Set newDoc = Documents.Add
+    
+    ' Run the code to create the formatted paragraph
+    CreateFormattedSOWParagraph
+    
+    ' Set zoom to 100% for better viewing
+    ActiveWindow.View.Zoom.Percentage = 100
+End Sub
+
