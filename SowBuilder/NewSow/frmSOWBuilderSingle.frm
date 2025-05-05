@@ -182,6 +182,11 @@ Private Sub btnGenerate_Click()
     optionalClauses.Add "AutoRenewal", chkAutoRenewal.Value
     optionalClauses.Add "GDPR", chkGDPR.Value
     
+    ' Ensure policy collection is initialized
+    If policyCollection Is Nothing Then
+        Set policyCollection = New Collection
+    End If
+    
     ' Generate the document
     SOWBuilderSinglePage.GenerateSOWDocument clientInfo, compensationOption, _
         txtAnnualFee.Value, billingOption, policyCollection, optionalClauses, txtAdditionalNotes.Value
@@ -253,8 +258,8 @@ Private Function ValidateForm() As Boolean
         End If
     End If
     
-    ' Check policy list if applicable
-    If (optB.Value Or optC.Value Or optD.Value) And lstPolicies.ListCount = 0 Then
+    ' Check policy list if applicable (for options B and C only)
+    If (optB.Value Or optC.Value) And lstPolicies.ListCount = 0 Then
         MsgBox "Please add at least one policy with commission rate.", vbExclamation
         txtPolicyName.SetFocus
         ValidateForm = False
