@@ -174,11 +174,129 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
     
     ' Add opening paragraph
     If clientInfo.Exists("WTWParty") And clientInfo.Exists("ClientName") Then
-        rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of " & _
-                     clientInfo("WTWParty") & " (""WTW"", ""we"" or ""us"") by " & clientInfo("ClientName") & _
-                     " (""Client"" or ""you"")." & vbCrLf & vbCrLf
+        ' Insert text with parts to be bolded marked
+        Dim openingStart As Long
+        openingStart = rng.End
+        rng.InsertAfter "This statement of work ("
+        
+        ' Make "SOW" bold
+        Dim sowStart As Long
+        sowStart = rng.End
+        rng.InsertAfter "SOW"
+        Dim sowRange As Range
+        Set sowRange = rng.Document.Range(sowStart, rng.End)
+        sowRange.Bold = True
+        
+        rng.InsertAfter ") will confirm the terms of the engagement of " & clientInfo("WTWParty") & " ("
+        
+        ' Make "WTW", "we", "us" bold
+        Dim wtwStart As Long
+        wtwStart = rng.End
+        rng.InsertAfter "WTW"
+        Dim wtwRange As Range
+        Set wtwRange = rng.Document.Range(wtwStart, rng.End)
+        wtwRange.Bold = True
+        
+        rng.InsertAfter ", "
+        
+        Dim weStart As Long
+        weStart = rng.End
+        rng.InsertAfter "we"
+        Dim weRange As Range
+        Set weRange = rng.Document.Range(weStart, rng.End)
+        weRange.Bold = True
+        
+        rng.InsertAfter " or "
+        
+        Dim usStart As Long
+        usStart = rng.End
+        rng.InsertAfter "us"
+        Dim usRange As Range
+        Set usRange = rng.Document.Range(usStart, rng.End)
+        usRange.Bold = True
+        
+        rng.InsertAfter ") by " & clientInfo("ClientName") & " ("
+        
+        ' Make "Client", "you" bold
+        Dim clientStart As Long
+        clientStart = rng.End
+        rng.InsertAfter "Client"
+        Dim clientRange As Range
+        Set clientRange = rng.Document.Range(clientStart, rng.End)
+        clientRange.Bold = True
+        
+        rng.InsertAfter " or "
+        
+        Dim youStart As Long
+        youStart = rng.End
+        rng.InsertAfter "you"
+        Dim youRange As Range
+        Set youRange = rng.Document.Range(youStart, rng.End)
+        youRange.Bold = True
+        
+        rng.InsertAfter ")." & vbCrLf & vbCrLf
     Else
-        rng.InsertAfter "This statement of work (""SOW"") will confirm the terms of the engagement of [WTW Entity] (""WTW"", ""we"" or ""us"") by [Client Legal Name] (""Client"" or ""you"")." & vbCrLf & vbCrLf
+        ' Insert text with parts to be bolded marked
+        Dim defaultOpeningStart As Long
+        defaultOpeningStart = rng.End
+        rng.InsertAfter "This statement of work ("
+        
+        ' Make "SOW" bold
+        Dim defaultSowStart As Long
+        defaultSowStart = rng.End
+        rng.InsertAfter "SOW"
+        Dim defaultSowRange As Range
+        Set defaultSowRange = rng.Document.Range(defaultSowStart, rng.End)
+        defaultSowRange.Bold = True
+        
+        rng.InsertAfter ") will confirm the terms of the engagement of [WTW Entity] ("
+        
+        ' Make "WTW", "we", "us" bold
+        Dim defaultWtwStart As Long
+        defaultWtwStart = rng.End
+        rng.InsertAfter "WTW"
+        Dim defaultWtwRange As Range
+        Set defaultWtwRange = rng.Document.Range(defaultWtwStart, rng.End)
+        defaultWtwRange.Bold = True
+        
+        rng.InsertAfter ", "
+        
+        Dim defaultWeStart As Long
+        defaultWeStart = rng.End
+        rng.InsertAfter "we"
+        Dim defaultWeRange As Range
+        Set defaultWeRange = rng.Document.Range(defaultWeStart, rng.End)
+        defaultWeRange.Bold = True
+        
+        rng.InsertAfter " or "
+        
+        Dim defaultUsStart As Long
+        defaultUsStart = rng.End
+        rng.InsertAfter "us"
+        Dim defaultUsRange As Range
+        Set defaultUsRange = rng.Document.Range(defaultUsStart, rng.End)
+        defaultUsRange.Bold = True
+        
+        rng.InsertAfter ") by [Client Legal Name] ("
+        
+        ' Make "Client", "you" bold
+        Dim defaultClientStart As Long
+        defaultClientStart = rng.End
+        rng.InsertAfter "Client"
+        Dim defaultClientRange As Range
+        Set defaultClientRange = rng.Document.Range(defaultClientStart, rng.End)
+        defaultClientRange.Bold = True
+        
+        rng.InsertAfter " or "
+        
+        Dim defaultYouStart As Long
+        defaultYouStart = rng.End
+        rng.InsertAfter "you"
+        Dim defaultYouRange As Range
+        Set defaultYouRange = rng.Document.Range(defaultYouStart, rng.End)
+        defaultYouRange.Bold = True
+        
+        rng.InsertAfter ")." & vbCrLf & vbCrLf
     End If
     Exit Sub
     
@@ -203,10 +321,29 @@ Private Sub AddTermsAndConditionsSection(rng As Range)
     Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
     sectionRange.Bold = True
     
-    rng.InsertAfter "Client desires to procure and WTW is willing to provide the services listed in Attachment 1 (the ""Services""). " & _
-                 "These Services will be provided subject to the WTW Health & Benefits Brokerage Terms, Conditions & Disclosures available at: " & _
-                 "https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf (the ""Brokerage Terms""). " & _
-                 "Copies of the Brokerage Terms are available upon request." & vbCrLf & vbCrLf
+    ' Insert text with parts to be bolded
+    rng.InsertAfter "Client desires to procure and WTW is willing to provide the services listed in Attachment 1 (the "
+    
+    ' Make "Services" bold
+    Dim servicesStart As Long
+    servicesStart = rng.End
+    rng.InsertAfter "Services"
+    Dim servicesRange As Range
+    Set servicesRange = rng.Document.Range(servicesStart, rng.End)
+    servicesRange.Bold = True
+    
+    rng.InsertAfter "). These Services will be provided subject to the WTW Health & Benefits Brokerage Terms, Conditions & Disclosures available at: " & _
+                 "https://www.wtwco.com/-/media/WTW/Notices/h-b-brokerage-terms-no-MSA.pdf (the "
+    
+    ' Make "Brokerage Terms" bold
+    Dim brokTermsStart As Long
+    brokTermsStart = rng.End
+    rng.InsertAfter "Brokerage Terms"
+    Dim brokTermsRange As Range
+    Set brokTermsRange = rng.Document.Range(brokTermsStart, rng.End)
+    brokTermsRange.Bold = True
+    
+    rng.InsertAfter "). Copies of the Brokerage Terms are available upon request." & vbCrLf & vbCrLf
 End Sub
 
 ' Add Term and Termination section
@@ -471,13 +608,36 @@ End Sub
 Private Sub InsertExpensesParagraph(rng As Range)
     rng.InsertAfter "In addition to the fee, our charges will include the following:" & vbCrLf & vbCrLf
     
+    ' Use proper indentation for bullet points with paragraph formatting
+    Dim bulletPara1Start As Long
+    bulletPara1Start = rng.End
+    
     rng.InsertAfter "• reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance " & _
                  "of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as " & _
                  "large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% " & _
                  "of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced " & _
                  "to and paid by you directly; and" & vbCrLf & vbCrLf
     
+    ' Apply left indent to the first bullet
+    Dim bulletPara1 As Range
+    Set bulletPara1 = rng.Document.Range(bulletPara1Start, rng.End - 2)  ' -2 to account for vbCrLf
+    With bulletPara1.ParagraphFormat
+        .LeftIndent = 36  ' 0.5 inch in points
+        .FirstLineIndent = -18  ' Hanging indent for bullet
+    End With
+    
+    Dim bulletPara2Start As Long
+    bulletPara2Start = rng.End
+    
     rng.InsertAfter "• the amount of any tax or similar assessment based upon our charges." & vbCrLf & vbCrLf
+    
+    ' Apply left indent to the second bullet
+    Dim bulletPara2 As Range
+    Set bulletPara2 = rng.Document.Range(bulletPara2Start, rng.End - 2)  ' -2 to account for vbCrLf
+    With bulletPara2.ParagraphFormat
+        .LeftIndent = 36  ' 0.5 inch in points
+        .FirstLineIndent = -18  ' Hanging indent for bullet
+    End With
     
     rng.InsertAfter "We will bill you for the fee payments as they become due. At the end of each month during which we perform " & _
                  "Services for you, we will also bill you for all other charges accrued for the month, such as travel and " & _
@@ -530,15 +690,47 @@ Private Sub InsertEarnedFeeTable(rng As Range)
                  "services actually provided to you, the parties agree that the fee is earned and that you will pay us as " & _
                  "provided in the following table:" & vbCrLf & vbCrLf
     
-    ' Insert table (simplified for text output)
-    rng.InsertAfter "Strategic Planning                15%     Earned in equal monthly installments prior to the benefit plan" & vbCrLf
-    rng.InsertAfter "                                          effective date (fully earned at benefit plan effective date)" & vbCrLf & vbCrLf
+    ' Create a table instead of text format
+    Dim doc As Document
+    Set doc = rng.Document
     
-    rng.InsertAfter "Program Renewal /                35%     Earned in equal monthly installments prior to the benefit plan" & vbCrLf
-    rng.InsertAfter "Placement Process                        effective date (fully earned at benefit plan effective date)" & vbCrLf & vbCrLf
+    ' Insert the table at the end of the range
+    Dim tbl As Table
+    Set tbl = doc.Tables.Add(Range:=rng, NumRows:=3, NumColumns:=3)
     
-    rng.InsertAfter "Ongoing Service and              50%     Earned in 12 equal monthly installments (starting at benefit" & vbCrLf
-    rng.InsertAfter "Resources                                plan effective date)" & vbCrLf & vbCrLf
+    ' Format the table
+    With tbl
+        ' Add borders to the table
+        .Borders.InsideLineStyle = wdLineStyleSingle
+        .Borders.OutsideLineStyle = wdLineStyleSingle
+        
+        ' Set column widths (in points)
+        .Columns(1).Width = 150 ' Component column
+        .Columns(2).Width = 60  ' Percentage column
+        .Columns(3).Width = 300 ' Description column
+        
+        ' Row 1: Strategic Planning
+        .Cell(1, 1).Range.Text = "Strategic Planning"
+        .Cell(1, 2).Range.Text = "15%"
+        .Cell(1, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 2: Program Renewal / Placement Process
+        .Cell(2, 1).Range.Text = "Program Renewal / Placement Process"
+        .Cell(2, 2).Range.Text = "35%"
+        .Cell(2, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 3: Ongoing Service and Resources
+        .Cell(3, 1).Range.Text = "Ongoing Service and Resources"
+        .Cell(3, 2).Range.Text = "50%"
+        .Cell(3, 3).Range.Text = "Earned in 12 equal monthly installments (starting at benefit plan effective date)"
+        
+        ' Center the percentage column
+        .Columns(2).Select
+        doc.Application.Selection.ParagraphFormat.Alignment = wdAlignParagraphCenter
+    End With
+    
+    ' Add paragraph after the table
+    rng.InsertAfter vbCrLf
 End Sub
 
 ' Add Additional Terms section
