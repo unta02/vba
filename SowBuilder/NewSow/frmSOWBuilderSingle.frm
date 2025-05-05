@@ -139,6 +139,8 @@ Private Sub btnGenerate_Click()
     ' Validate required fields
     If Not ValidateForm Then Exit Sub
     
+    On Error GoTo ErrorHandler
+    
     ' Create dictionary for client info
     Dim clientInfo As Object
     Set clientInfo = SOWBuilderSinglePage.CreateDictionary
@@ -187,22 +189,40 @@ Private Sub btnGenerate_Click()
         Set policyCollection = New Collection
     End If
     
-    On Error Resume Next
+    ' DEBUG - Print parameter info for debugging
+    Debug.Print "Parameter types:"
+    Debug.Print "clientInfo type: " & TypeName(clientInfo)
+    Debug.Print "compensationOption type: " & TypeName(compensationOption)
+    Debug.Print "annualFee type: " & TypeName(txtAnnualFee.Value)
+    Debug.Print "billingOption type: " & TypeName(billingOption)
+    Debug.Print "policyCollection type: " & TypeName(policyCollection)
+    Debug.Print "optionalClauses type: " & TypeName(optionalClauses)
+    Debug.Print "additionalNotes type: " & TypeName(txtAdditionalNotes.Value)
+    
+    ' Special handling for annual fee when option D is selected
+    Dim feeValue As String
+    If compensationOption = "D" Then
+        feeValue = "0"  ' For commission only, set fee to zero
+    Else
+        feeValue = txtAnnualFee.Value
+    End If
+    
     ' Generate the document
     SOWBuilderSinglePage.GenerateSOWDocument clientInfo, compensationOption, _
-        txtAnnualFee.Value, billingOption, policyCollection, optionalClauses, txtAdditionalNotes.Value
-    
-    If Err.Number <> 0 Then
-        MsgBox "Error generating document: " & Err.Description, vbCritical
-        Debug.Print "Error in generate document: " & Err.Description
-        Debug.Print "Error number: " & Err.Number
-        On Error GoTo 0
-        Exit Sub
-    End If
-    On Error GoTo 0
+        feeValue, billingOption, policyCollection, optionalClauses, txtAdditionalNotes.Value
     
     ' Unload form
     Unload Me
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "Error generating document: " & Err.Description & vbCrLf & _
+           "Error Number: " & Err.Number & vbCrLf & _
+           "Please check Debug window for more details", vbCritical
+    Debug.Print "Error in generate document: " & Err.Description
+    Debug.Print "Error number: " & Err.Number
+    Debug.Print "Error source: " & Err.Source
+    Resume Next
 End Sub
 
 ' Validate all required fields
