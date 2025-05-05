@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmSOWBuilderSingle 
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmSOWBuilder3
    Caption         =   "SOW Builder"
    ClientHeight    =   7380
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   9615
-   OleObjectBlob   =   "frmSOWBuilderSingle.frx":0000
+   OleObjectBlob   =   "frmSOWBuilder3.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "frmSOWBuilderSingle"
+Attribute VB_Name = "frmSOWBuilder3"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -187,9 +187,19 @@ Private Sub btnGenerate_Click()
         Set policyCollection = New Collection
     End If
     
+    On Error Resume Next
     ' Generate the document
     SOWBuilderSinglePage.GenerateSOWDocument clientInfo, compensationOption, _
         txtAnnualFee.Value, billingOption, policyCollection, optionalClauses, txtAdditionalNotes.Value
+    
+    If Err.Number <> 0 Then
+        MsgBox "Error generating document: " & Err.Description, vbCritical
+        Debug.Print "Error in generate document: " & Err.Description
+        Debug.Print "Error number: " & Err.Number
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
     
     ' Unload form
     Unload Me
