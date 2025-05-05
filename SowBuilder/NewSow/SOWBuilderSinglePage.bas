@@ -105,8 +105,17 @@ End Sub
 Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
     On Error GoTo ErrorHandler
     
-    ' Add document title
+    ' Add document title with proper formatting
     rng.InsertAfter "STATEMENT OF WORK" & vbCrLf & vbCrLf
+    
+    ' Format the title
+    Dim titleRange As Range
+    Set titleRange = rng.Document.Range(rng.Document.Range(0).End - 15, rng.Document.Range(0).End)
+    With titleRange
+        .Font.Bold = True
+        .Font.Size = 14
+        .ParagraphFormat.Alignment = wdAlignParagraphCenter
+    End With
     
     ' Ensure clientInfo is a Dictionary type
     If TypeName(clientInfo) <> "Dictionary" Then
@@ -119,8 +128,6 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
         rng.InsertAfter "Dear [Name]:" & vbCrLf & vbCrLf
         
         ' Insert opening paragraph with bold terms
-        Dim openingStart As Long
-        openingStart = rng.End
         rng.InsertAfter "This statement of work ("
         
         ' Insert "SOW" with bold formatting
@@ -171,7 +178,7 @@ Private Sub AddDocumentHeader(rng As Range, clientInfo As Object)
         Set clientRange = rng.Document.Range(clientStart, rng.End)
         clientRange.Bold = True
         
-        rng.InsertAfter " or "
+        rng.InsertAfter " or ")
         
         ' Insert "you" with bold formatting
         Dim youStart As Long
@@ -386,7 +393,13 @@ Private Sub AddTermsAndConditionsSection(rng As Range)
     ' Format the section header as bold
     Dim sectionRange As Range
     Set sectionRange = rng.Document.Range(sectionStart, rng.Document.Range(sectionStart).End - 2)
-    sectionRange.Bold = True
+    With sectionRange
+        .Font.Bold = True
+        .Font.Size = 11
+        .Font.Underline = wdUnderlineSingle
+        .ParagraphFormat.SpaceAfter = 8
+        .ParagraphFormat.SpaceBefore = 12
+    End With
     
     ' Insert first part of the paragraph
     rng.InsertAfter "Client desires to procure and WTW is willing to provide the services listed in Attachment 1 (the "
@@ -677,15 +690,27 @@ End Sub
 Private Sub InsertExpensesParagraph(rng As Range)
     rng.InsertAfter "In addition to the fee, our charges will include the following:" & vbCrLf & vbCrLf
     
-    ' Insert first bullet point with increased indentation
-    rng.InsertAfter "    • reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance " & _
-                 "of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as " & _
-                 "large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% " & _
-                 "of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced " & _
-                 "to and paid by you directly; and" & vbCrLf & vbCrLf
+    ' Format the first bullet point
+    rng.ParagraphFormat.LeftIndent = InchesToPoints(0.25)
+    rng.ParagraphFormat.FirstLineIndent = InchesToPoints(0)
     
-    ' Insert second bullet point with increased indentation
-    rng.InsertAfter "    • the amount of any tax or similar assessment based upon our charges." & vbCrLf & vbCrLf
+    ' Set bullet format
+    rng.Range.ListFormat.ApplyBulletDefault
+    
+    ' Insert first bullet point text
+    rng.InsertAfter "reimbursement, at cost, of direct expenses reasonably incurred by us in connection with the performance of our Services, such as travel and other vendor expenses, and itemized extraordinary expenses such as large-volume color printing, large-volume courier shipments and the like, plus an administrative fee of 5% of any vendor charges other than travel, unless arrangements are made in advance for charges to be invoiced to and paid by you directly; and"
+    rng.InsertAfter vbCrLf
+    
+    ' Insert second bullet point text
+    rng.InsertAfter "the amount of any tax or similar assessment based upon our charges."
+    rng.InsertAfter vbCrLf & vbCrLf
+    
+    ' Clear the bullet format for future typing
+    rng.Range.ListFormat.RemoveNumbers
+    
+    ' Reset paragraph format to default
+    rng.ParagraphFormat.LeftIndent = InchesToPoints(0)
+    rng.ParagraphFormat.FirstLineIndent = InchesToPoints(0)
     
     rng.InsertAfter "We will bill you for the fee payments as they become due. At the end of each month during which we perform " & _
                  "Services for you, we will also bill you for all other charges accrued for the month, such as travel and " & _
@@ -738,15 +763,70 @@ Private Sub InsertEarnedFeeTable(rng As Range)
                  "services actually provided to you, the parties agree that the fee is earned and that you will pay us as " & _
                  "provided in the following table:" & vbCrLf & vbCrLf
     
-    ' Insert table (simplified for text output)
-    rng.InsertAfter "Strategic Planning                15%     Earned in equal monthly installments prior to the benefit plan" & vbCrLf
-    rng.InsertAfter "                                          effective date (fully earned at benefit plan effective date)" & vbCrLf & vbCrLf
+    ' Create a table with 3 rows and 3 columns
+    Dim tbl As Table
+    Set tbl = rng.Document.Tables.Add(Range:=rng.Range, NumRows:=3, NumColumns:=3)
     
-    rng.InsertAfter "Program Renewal /                35%     Earned in equal monthly installments prior to the benefit plan" & vbCrLf
-    rng.InsertAfter "Placement Process                        effective date (fully earned at benefit plan effective date)" & vbCrLf & vbCrLf
+    ' Format the table
+    With tbl
+        ' Set border style
+        .Borders.InsideLineStyle = wdLineStyleSingle
+        .Borders.OutsideLineStyle = wdLineStyleSingle
+        
+        ' Set column widths
+        .Columns(1).Width = InchesToPoints(2.5)  ' First column
+        .Columns(2).Width = InchesToPoints(1)    ' Second column
+        .Columns(3).Width = InchesToPoints(3.5)  ' Third column
+        
+        ' Set cell padding for all cells
+        .Cell(1, 1).SetWidth ColumnWidth:=InchesToPoints(2.5), RulerStyle:=wdAdjustNone
+        For i = 1 To .Rows.Count
+            For j = 1 To .Columns.Count
+                ' Select the cell first
+                .Cell(i, j).Select
+                ' Then apply formatting to the selection
+                Selection.ParagraphFormat.SpaceBefore = 6
+                Selection.ParagraphFormat.SpaceAfter = 6
+                Selection.ParagraphFormat.LeftIndent = 6
+                Selection.ParagraphFormat.RightIndent = 6
+            Next j
+        Next i
+        
+        ' Row 1
+        .Cell(1, 1).Range.Text = "Strategic Planning"
+        .Cell(1, 2).Range.Text = "15%"
+        .Cell(1, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 2
+        .Cell(2, 1).Range.Text = "Program Renewal / Placement Process"
+        .Cell(2, 2).Range.Text = "35%"
+        .Cell(2, 3).Range.Text = "Earned in equal monthly installments prior to the benefit plan effective date (fully earned at benefit plan effective date)"
+        
+        ' Row 3
+        .Cell(3, 1).Range.Text = "Ongoing Service and Resources"
+        .Cell(3, 2).Range.Text = "50%"
+        .Cell(3, 3).Range.Text = "Earned in 12 equal monthly installments (starting at benefit plan effective date)"
+        
+        ' Set vertical alignment for all cells
+        For i = 1 To .Rows.Count
+            For j = 1 To .Columns.Count
+                .Cell(i, j).VerticalAlignment = wdCellAlignVerticalCenter
+            Next j
+        Next i
+        
+        ' Align the percentage column to center
+        For i = 1 To .Rows.Count
+            .Cell(i, 2).Range.ParagraphFormat.Alignment = wdAlignParagraphCenter
+        Next i
+    End With
     
-    rng.InsertAfter "Ongoing Service and              50%     Earned in 12 equal monthly installments (starting at benefit" & vbCrLf
-    rng.InsertAfter "Resources                                plan effective date)" & vbCrLf & vbCrLf
+    ' Select the table and set a nice table style
+    tbl.Select
+    Selection.Tables(1).Style = "Table Grid"
+    
+    ' Move the cursor after the table
+    Selection.MoveDown Unit:=wdLine, Count:=1
+    Selection.TypeParagraph
 End Sub
 
 ' Add Additional Terms section
